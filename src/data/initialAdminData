@@ -1,0 +1,105 @@
+export const INITIAL_CMS_SETTINGS = {
+  adminPin: '2026',
+  announcementEnabled: true,
+  announcementText: '✨ Free Tracked Shipping on All Cozy Orders! Use code COZY15 for 15% Off!',
+  announcementBg: '#1E1E24',
+  heroBadge: 'Oddly Themed & Oddly Shaped',
+  heroHeadline: 'Pillows That Make Your Room',
+  heroHighlight: 'Way More Fun.',
+  heroSubtitle:
+    'Buy our signature graphic pillows & blankets in 1 click, customize sizes and patterns in real time, or snuggle up with giant 3D plushies!',
+  defaultWeather: 'confetti',
+  defaultLightOn: false,
+  defaultBeamRadius: 190,
+  etransferEmail: 'pay@oddlycozypillows.com',
+};
+
+export const INITIAL_PROMO_CODES = [
+  { id: 'promo-1', code: 'COZY15', discountType: 'percent', value: 15, active: true },
+  { id: 'promo-2', code: 'FRIES5', discountType: 'fixed', value: 5, active: true },
+];
+
+export const INITIAL_ORDERS = [
+  {
+    id: 'OCP-849201',
+    createdAt: '2026-11-04 11:15 AM',
+    customerName: 'Sarah Jenkins',
+    customerEmail: 'sarah.jenkins@example.com',
+    shippingAddress: '142 Lakeshore Rd, St. Catharines, ON L2N 2T6',
+    paymentMethod: 'etransfer',
+    paymentStatus: 'Awaiting e-Transfer',
+    orderStatus: 'Processing',
+    trackingNumber: '',
+    subtotal: 78.98,
+    discount: 0,
+    total: 78.98,
+    items: [
+      {
+        id: 'item-1',
+        name: 'Custom Pillow — Golden French Fries',
+        sizeLabel: '18" × 18" (Classic Sofa)',
+        modeLabel: 'Checkered Layout (Double-Sided)',
+        price: 32.99,
+        unitCost: 13.5,
+        quantity: 1,
+        fulfillmentRoute: 'Printify POD',
+        image: '/icons/french-fries.svg',
+      },
+      {
+        id: 'item-2',
+        name: 'Deluxe Sesame Cheeseburger Plush Pillow',
+        sizeLabel: 'Oversized 3D Stuffed Plush Pillow',
+        modeLabel: 'Standard Edition',
+        price: 45.99,
+        unitCost: 18.0,
+        quantity: 1,
+        fulfillmentRoute: 'Plush Supplier',
+        image: '/icons/sushi-pillow.svg',
+      },
+    ],
+  },
+  {
+    id: 'OCP-849188',
+    createdAt: '2026-11-04 09:40 AM',
+    customerName: 'Marcus Vance',
+    customerEmail: 'mvance@example.com',
+    shippingAddress: '88 Queen St W, Toronto, ON M5H 2M9',
+    paymentMethod: 'card',
+    paymentStatus: 'Paid',
+    orderStatus: 'In Production',
+    trackingNumber: '',
+    subtotal: 89.99,
+    discount: 0,
+    total: 89.99,
+    items: [
+      {
+        id: 'item-3',
+        name: 'Pink Frosted Donut Matching Set',
+        sizeLabel: 'Includes 2 Printed Pillows (16"×16") + 1 Printed Blanket (50"×60")',
+        modeLabel: 'Standard Edition',
+        price: 89.99,
+        unitCost: 38.0,
+        quantity: 1,
+        fulfillmentRoute: 'Printify Bundle',
+        image: '/images/matching sets/donut-set.jpg',
+      },
+    ],
+  },
+];
+
+export const INITIAL_CUSTOM_PROOFS = [
+  {
+    id: 'PRF-301',
+    createdAt: '2026-11-04 10:05 AM',
+    customerEmail: 'dogmom99@example.com',
+    itemType: 'pillow',
+    sizeLabel: '22" × 22" (Oversized Lounge)',
+    price: 49.99,
+    description:
+      'Please cut out my French Bulldog Barnaby and repeat him in a checkered pattern with little croissants on a pastel pink background!',
+    referenceImage: '/icons/printed-pillow.svg',
+    mockupProofImage: '',
+    status: 'Needs Mockup', // 'Needs Mockup' | 'Proof Sent' | 'Approved'
+    operatorNotes: 'Customer uploaded clear photo. Ready for background removal.',
+  },
+];

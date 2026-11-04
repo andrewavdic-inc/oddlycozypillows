@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Fredoka', system-ui, sans-serif;
+  }
+}
+
+/* Custom playful scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #FFF8EC;
+}
+::-webkit-scrollbar-thumb {
+  background: #FF595E;
+  border-radius: 9999px;
+  border: 3px solid #FFF8EC;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E03E43;
+}
