@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Upload, Trash2, Edit3, Check, X, Image as ImageIcon } from 'lucide-react';
+import { Plus, Upload, Trash2, Edit3, Check, X, Snowflake, Flame } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { uploadImageFile } from '../../../services/firebaseClient';
 import { getFolderImages } from '../../../utils/publicManifest';
@@ -10,13 +10,23 @@ export default function InventoryManagerTab() {
   const [editingItem, setEditingItem] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const winterCount = products.filter((p) => p.isWinter).length;
+  const popularCount = products.filter((p) => p.isPopular).length;
+
   const visibleProducts =
     filterCat === 'all'
       ? products
+      : filterCat === 'winter'
+      ? products.filter((p) => p.isWinter)
+      : filterCat === 'popular'
+      ? products.filter((p) => p.isPopular)
       : products.filter((p) => p.categoryId === filterCat);
 
   const handleStartAdd = () => {
-    const defaultCat = filterCat === 'all' ? 'printed-pillows' : filterCat;
+    const defaultCat =
+      filterCat === 'all' || filterCat === 'winter' || filterCat === 'popular'
+        ? 'printed-pillows'
+        : filterCat;
     setEditingItem({
       id: `prod-${Date.now()}`,
       categoryId: defaultCat,
@@ -30,6 +40,8 @@ export default function InventoryManagerTab() {
       customizable: defaultCat === 'printed-pillows' || defaultCat === 'printed-blankets',
       productType: defaultCat === 'printed-blankets' ? 'blanket' : 'pillow',
       inStock: true,
+      isWinter: filterCat === 'winter',
+      isPopular: filterCat === 'popular',
       fulfillmentRoute:
         defaultCat === 'printed-pillows' || defaultCat === 'printed-blankets'
           ? 'Printify POD'
@@ -37,7 +49,6 @@ export default function InventoryManagerTab() {
     });
   };
 
-  // Direct Button File Upload Handler (No URL Link Needed)
   const handleFileButtonUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !editingItem) return;
@@ -67,7 +78,6 @@ export default function InventoryManagerTab() {
     setEditingItem(null);
   };
 
-  // Discover existing public folder images for the selected category as a bonus quick-select
   const folderMap = {
     'printed-pillows': 'printed pillows',
     'oddly-cozy-pillows': 'oddly cozy pillows',
@@ -85,9 +95,9 @@ export default function InventoryManagerTab() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl font-bold">Inventory & Product Manager</h2>
+          <h2 className="font-display text-3xl font-bold">Inventory & Featured Collections</h2>
           <p className="text-sm text-slate-600">
-            Upload product photos with one click, adjust prices & internal costs, or toggle stock across all 7 categories.
+            Toggle which 8 items appear in your front-page <strong>Winter Collection</strong> and <strong>Most Popular</strong> sections!
           </p>
         </div>
 
@@ -101,7 +111,7 @@ export default function InventoryManagerTab() {
         </button>
       </div>
 
-      {/* Category Filter Pills */}
+      {/* Filter Pills including Winter & Most Popular Curation Filters */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -110,15 +120,38 @@ export default function InventoryManagerTab() {
             filterCat === 'all' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
           }`}
         >
-          All Categories ({products.length})
+          All ({products.length})
         </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterCat('winter')}
+          className={`inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-extrabold border-2 border-slate-900 ${
+            filterCat === 'winter' ? 'bg-sky-500 text-white' : 'bg-sky-50 text-sky-900'
+          }`}
+        >
+          <Snowflake className="w-3.5 h-3.5" />
+          Winter Collection ({winterCount}/8)
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilterCat('popular')}
+          className={`inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-extrabold border-2 border-slate-900 ${
+            filterCat === 'popular' ? 'bg-amber-400 text-slate-900' : 'bg-amber-50 text-amber-900'
+          }`}
+        >
+          <Flame className="w-3.5 h-3.5" />
+          Most Popular ({popularCount}/8)
+        </button>
+
         {categories.map((cat) => (
           <button
             key={cat.id}
             type="button"
             onClick={() => setFilterCat(cat.id)}
             style={filterCat === cat.id ? { backgroundColor: cat.color, color: cat.textColor } : {}}
-            className={`px-4 py-2 rounded-full text-xs font-extrabold border-2 border-slate-900 ${
+            className={`px-3.5 py-2 rounded-full text-xs font-extrabold border-2 border-slate-900 ${
               filterCat === cat.id ? 'shadow-[0_2px_0_#1E1E24]' : 'bg-white text-slate-700'
             }`}
           >
@@ -127,7 +160,7 @@ export default function InventoryManagerTab() {
         ))}
       </div>
 
-      {/* Add / Edit Product Modal with File Upload Button */}
+      {/* Add / Edit Product Modal */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <form
@@ -147,7 +180,6 @@ export default function InventoryManagerTab() {
               </button>
             </div>
 
-            {/* Direct Image Upload Button Section */}
             <div className="p-4 rounded-2xl bg-amber-50 border-2 border-slate-900 flex flex-col sm:flex-row items-center gap-5">
               <img
                 src={editingItem.image}
@@ -159,7 +191,7 @@ export default function InventoryManagerTab() {
                   Product Photo
                 </span>
 
-                <label className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1982C4] hover:bg-[#146ca3] text-white font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] cursor-pointer transition-transform active:translate-y-0.5">
+                <label className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1982C4] hover:bg-[#146ca3] text-white font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] cursor-pointer">
                   <Upload className="w-4 h-4" />
                   <span>
                     {isUploading ? 'Uploading & Optimizing...' : 'Upload Image from Computer'}
@@ -175,7 +207,7 @@ export default function InventoryManagerTab() {
                 {localFolderFiles.length > 0 && (
                   <div className="pt-1">
                     <span className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Or click a photo already in your public folder:
+                      Or pick from public folder:
                     </span>
                     <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
                       {localFolderFiles.map((fUrl) => (
@@ -232,7 +264,6 @@ export default function InventoryManagerTab() {
                   type="text"
                   value={editingItem.badge || ''}
                   onChange={(e) => setEditingItem((p) => ({ ...p, badge: e.target.value }))}
-                  placeholder="e.g., Bestseller"
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm font-semibold"
                 />
               </div>
@@ -246,20 +277,7 @@ export default function InventoryManagerTab() {
                   required
                   value={editingItem.name}
                   onChange={(e) => setEditingItem((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g., Giant Stuffed Waffle Pillow"
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm font-bold"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-extrabold uppercase text-slate-600 mb-1">
-                  Subtitle / Size Spec
-                </label>
-                <input
-                  type="text"
-                  value={editingItem.subtitle}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, subtitle: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm"
                 />
               </div>
 
@@ -279,7 +297,7 @@ export default function InventoryManagerTab() {
 
               <div>
                 <label className="block text-xs font-extrabold uppercase text-slate-600 mb-1">
-                  Internal Unit Cost ($) (Admin Only)
+                  Internal Unit Cost ($)
                 </label>
                 <input
                   type="number"
@@ -303,23 +321,45 @@ export default function InventoryManagerTab() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <label className="inline-flex items-center gap-2 text-xs font-extrabold cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editingItem.inStock}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, inStock: e.target.checked }))}
-                  className="w-4 h-4 accent-emerald-600"
-                />
-                <span>Product is In Stock</span>
-              </label>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="inline-flex items-center gap-1.5 text-xs font-extrabold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editingItem.inStock}
+                    onChange={(e) => setEditingItem((p) => ({ ...p, inStock: e.target.checked }))}
+                    className="w-4 h-4 accent-emerald-600"
+                  />
+                  <span>In Stock</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 text-xs font-extrabold text-sky-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingItem.isWinter)}
+                    onChange={(e) => setEditingItem((p) => ({ ...p, isWinter: e.target.checked }))}
+                    className="w-4 h-4 accent-sky-600"
+                  />
+                  <span>❄️ Winter Collection</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 text-xs font-extrabold text-rose-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(editingItem.isPopular)}
+                    onChange={(e) => setEditingItem((p) => ({ ...p, isPopular: e.target.checked }))}
+                    className="w-4 h-4 accent-rose-600"
+                  />
+                  <span>🔥 Most Popular</span>
+                </label>
+              </div>
 
               <button
                 type="submit"
                 className="px-6 py-3 rounded-2xl bg-[#8AC926] text-slate-900 font-extrabold text-sm border-2 border-slate-900 shadow-[0_4px_0_#1E1E24] flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />
-                Save Product to Storefront
+                Save Product
               </button>
             </div>
           </form>
@@ -333,61 +373,79 @@ export default function InventoryManagerTab() {
           return (
             <div
               key={item.id}
-              className="bg-white rounded-3xl border-3 border-slate-900 p-4 shadow-[0_6px_0_#1E1E24] flex gap-4 items-center"
+              className="bg-white rounded-3xl border-3 border-slate-900 p-4 shadow-[0_6px_0_#1E1E24] flex flex-col justify-between gap-3"
             >
-              <img
-                src={item.image}
-                onError={(e) => {
-                  e.currentTarget.src = item.fallbackImage || '/icons/printed-pillow.svg';
-                }}
-                alt={item.name}
-                className="w-24 h-24 rounded-2xl object-cover bg-slate-100 border-2 border-slate-900 shrink-0"
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                      item.inStock
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    {item.inStock ? 'In Stock' : 'Sold Out'}
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400 truncate">
-                    {item.fulfillmentRoute}
-                  </span>
+              <div className="flex gap-4 items-center">
+                <img
+                  src={item.image}
+                  onError={(e) => {
+                    e.currentTarget.src = item.fallbackImage || '/icons/printed-pillow.svg';
+                  }}
+                  alt={item.name}
+                  className="w-20 h-20 rounded-2xl object-cover bg-slate-100 border-2 border-slate-900 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                        item.inStock
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {item.inStock ? 'In Stock' : 'Sold Out'}
+                    </span>
+                  </div>
+
+                  <h4 className="font-display font-bold text-base truncate mt-0.5">{item.name}</h4>
+                  <p className="text-xs font-extrabold text-slate-800">
+                    ${item.price.toFixed(2)}{' '}
+                    <span className="text-emerald-600 font-bold text-[11px]">
+                      (+${profit} profit)
+                    </span>
+                  </p>
                 </div>
+              </div>
 
-                <h4 className="font-display font-bold text-base truncate mt-0.5">{item.name}</h4>
-                <p className="text-xs font-extrabold text-slate-800">
-                  ${item.price.toFixed(2)}{' '}
-                  <span className="text-emerald-600 font-bold text-[11px]">
-                    (+${profit} profit)
-                  </span>
-                </p>
-
-                <div className="mt-2.5 flex items-center gap-2">
+              {/* 1-Click Section Curation & Edit Controls */}
+              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setEditingItem(item)}
-                    className="px-3 py-1.5 rounded-xl bg-amber-300 hover:bg-amber-400 text-slate-900 font-extrabold text-xs border border-slate-900 flex items-center gap-1"
+                    onClick={() => saveProduct({ ...item, isWinter: !item.isWinter })}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold border transition-colors ${
+                      item.isWinter
+                        ? 'bg-sky-500 text-white border-slate-900'
+                        : 'bg-slate-100 text-slate-600 border-slate-300'
+                    }`}
                   >
-                    <Edit3 className="w-3 h-3" /> Edit / Upload Photo
+                    ❄️ Winter
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      saveProduct({ ...item, inStock: !item.inStock })
-                    }
-                    className="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold border border-slate-300"
+                    onClick={() => saveProduct({ ...item, isPopular: !item.isPopular })}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold border transition-colors ${
+                      item.isPopular
+                        ? 'bg-amber-400 text-slate-900 border-slate-900'
+                        : 'bg-slate-100 text-slate-600 border-slate-300'
+                    }`}
                   >
-                    {item.inStock ? 'Mark Sold Out' : 'Restock'}
+                    🔥 Popular
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingItem(item)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold text-[11px] flex items-center gap-1"
+                  >
+                    <Edit3 className="w-3 h-3" /> Edit
                   </button>
                   <button
                     type="button"
                     onClick={() => deleteProduct(item.id)}
-                    className="p-1.5 text-slate-400 hover:text-rose-600"
+                    className="p-1 text-slate-400 hover:text-rose-600"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

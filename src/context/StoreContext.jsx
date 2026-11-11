@@ -20,19 +20,72 @@ import {
 
 const StoreContext = createContext(null);
 
-const STORAGE_KEY = 'oddly_cozy_store_v1';
+const STORAGE_KEY = 'oddly_cozy_store_v2';
+
+// Default curated IDs for the 8-item Winter Collection and 8-item Most Popular section
+const DEFAULT_WINTER_IDS = new Set([
+  'ocb-2',           // Fat Knit Cloud Blanket
+  'ms-cookies',      // Cookies & Cream Matching Set
+  'ms-strawberry',   // Strawberry Matching Set
+  'pp-choco-cookies',// Warm Chocolate Chip Cookie Pillow
+  'pp-4',
+  'ocp-3',           // Giant Croissant Body Pillow
+  'ocp-4',           // Boba Tea Plush Pillow
+  'pb-4',            // Reese's Puffs / Sweet Crunch Blanket
+  'pb-gummy-bears',  // Gummy Bears Blanket
+  'ocb-4',           // Belgian Waffle Blanket
+]);
+
+const DEFAULT_POPULAR_IDS = new Set([
+  'pp-french-fries', // French Fries Pillow
+  'ocp-1',           // Cheeseburger Plush
+  'ocp-2',           // Jumbo Sushi Plush
+  'pb-diet-cola',    // Fizzy Diet Cola Blanket
+  'ocb-1',           // Fried Egg Blanket
+  'ms-donut',        // Pink Frosted Donut Set
+  'ms-pizza',        // Supreme Pizza Set
+  'rug-pizza',       // Pepperoni Pizza Rug
+]);
 
 function enrichDefaultProducts(products) {
-  return products.map((p) => ({
-    ...p,
-    inStock: p.inStock !== undefined ? p.inStock : true,
-    unitCost: p.unitCost !== undefined ? p.unitCost : Number((p.price * 0.42).toFixed(2)),
-    fulfillmentRoute:
-      p.fulfillmentRoute ||
-      (p.customizable || p.categoryId === 'rugs' || p.categoryId === 'matching-sets'
-        ? 'Printify POD'
-        : 'Plush/Blanket Supplier'),
-  }));
+  let winterCount = 0;
+  let popularCount = 0;
+
+  return products.map((p, idx) => {
+    // Sync button fields if loaded from older cache
+    let isWinter = p.isWinter;
+    if (isWinter === undefined) {
+      isWinter = DEFAULT_WINTER_IDS.has(p.id) || (idx % 3 === 0 && winterCount < 8);
+    }
+    if (isWinter) winterCount++;
+
+    let isPopular = p.isPopular;
+    if (isPopular === undefined) {
+      isPopular = DEFAULT_POPULAR_IDS.has(p.id) || (idx % 2 === 0 && popularCount < 8);
+    }
+    if (isPopular) popularCount++;
+
+    return {
+      ...p,
+      inStock: p.inStock !== undefined ? p.inStock : true,
+      isWinter,
+      isPopular,
+      unitCost: p.unitCost !== undefined ? p.unitCost : Number((p.price * 0.42).toFixed(2)),
+      fulfillmentRoute:
+        p.fulfillmentRoute ||
+        (p.customizable || p.categoryId === 'rugs' || p.categoryId === 'matching-sets'
+          ? 'Printify POD'
+          : 'Plush/Blanket Supplier'),
+    };
+  });
+}
+
+function mergeCategoriesWithButtons(savedCategories) {
+  if (!savedCategories?.length) return DEFAULT_CATEGORIES;
+  return DEFAULT_CATEGORIES.map((defCat) => {
+    const found = savedCategories.find((c) => c.id === defCat.id);
+    return found ? { ...defCat, ...found, buttonBaseName: defCat.buttonBaseName, buttonPng: defCat.buttonPng, buttonFallback: defCat.buttonFallback, onHomePage: defCat.onHomePage } : defCat;
+  });
 }
 
 export function StoreProvider({ children }) {
@@ -46,15 +99,14 @@ export function StoreProvider({ children }) {
   const [customProofs, setCustomProofs] = useState(INITIAL_CUSTOM_PROOFS);
   const [promoCodes, setPromoCodes] = useState(INITIAL_PROMO_CODES);
 
-  // Load saved state from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.cms) setCms((prev) => ({ ...prev, ...parsed.cms }));
-        if (parsed.categories?.length) setCategories(parsed.categories);
-        if (parsed.products?.length) setProducts(parsed.products);
+        if (parsed.categories?.length) setCategories(mergeCategoriesWithButtons(parsed.categories));
+        if (parsed.products?.length) setProducts(enrichDefaultProducts(parsed.products));
         if (parsed.prints?.length) setPrints(parsed.prints);
         if (parsed.pillowSizes?.length) setPillowSizes(parsed.pillowSizes);
         if (parsed.blanketSizes?.length) setBlanketSizes(parsed.blanketSizes);
@@ -67,13 +119,12 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  // Optional real-time subscription if Firebase is configured
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     const unsub = subscribeToCloudStore('mainStore', (data) => {
-      if (data.cms) setCms(data.cms);
-      if (data.categories) setCategories(data.categories);
-      if (data.products) setProducts(data.products);
+      if (data.cms) setCms((prev) => ({ ...prev, ...data.cms }));
+      if (data.categories) setCategories(mergeCategoriesWithButtons(data.categories));
+      if (data.products) setProducts(enrichDefaultProducts(data.products));
       if (data.prints) setPrints(data.prints);
       if (data.pillowSizes) setPillowSizes(data.pillowSizes);
       if (data.blanketSizes) setBlanketSizes(data.blanketSizes);
@@ -84,7 +135,6 @@ export function StoreProvider({ children }) {
     return () => unsub();
   }, []);
 
-  // Persist changes to localStorage & Firebase
   const persistState = (nextState) => {
     const fullPayload = {
       cms,

@@ -1,56 +1,70 @@
-import React from 'react';
-import { CATEGORIES } from '../../config/themeColors';
+import React, { useState } from 'react';
+import { useStore } from '../../context/StoreContext';
+import { resolveButtonImage } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
-export default function CategoryBubbles() {
-  const handleJump = (id) => {
-    soundFX.playPop();
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function CategoryPngButton({ category, index, onSelect }) {
+  const resolvedPrimary = resolveButtonImage(category.buttonBaseName, category.buttonPng);
+  const [imgSrc, setImgSrc] = useState(resolvedPrimary);
+  const [fallbackStage, setFallbackStage] = useState(0);
+
+  const handleImgError = () => {
+    if (fallbackStage === 0) {
+      setFallbackStage(1);
+      setImgSrc(category.buttonFallback || `/${category.buttonBaseName}.jpg`);
+    } else if (fallbackStage === 1) {
+      setFallbackStage(2);
+      setImgSrc(category.iconColor);
     }
   };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      <div className="text-center mb-5">
-        <span className="text-xs font-extrabold uppercase tracking-widest text-slate-500">
-          7 Color-Coded Cozy Worlds
-        </span>
-        <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900">
-          Pick a Category to Jump Straight In
-        </h2>
+    <button
+      type="button"
+      onClick={() => {
+        soundFX.playPop();
+        onSelect(category);
+      }}
+      className="group flex flex-col items-center justify-center p-2 bg-transparent border-0 outline-none focus:outline-none cursor-pointer select-none transition-transform duration-300 hover:scale-110"
+    >
+      <div
+        style={{ animationDelay: `${index * 0.22}s` }}
+        className="w-28 h-28 sm:w-36 sm:h-36 flex items-center justify-center animate-rock-slow group-hover:animate-wiggle"
+      >
+        <img
+          src={imgSrc}
+          onError={handleImgError}
+          alt={category.name}
+          className="w-full h-full object-contain drop-shadow-[0_10px_12px_rgba(15,23,42,0.22)] transition-transform duration-300"
+        />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3.5">
-        {CATEGORIES.map((cat) => (
-          <button
+      <span className="mt-2 font-display font-bold text-sm sm:text-base text-slate-900 group-hover:text-[#FF595E] transition-colors text-center leading-tight">
+        {category.shortName}
+      </span>
+    </button>
+  );
+}
+
+export default function CategoryBubbles({ onSelectCategory }) {
+  const { categories } = useStore();
+
+  return (
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-4">
+      <div className="text-center mb-3">
+        <span className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
+          Shop By Category
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 items-center justify-items-center">
+        {categories.map((cat, idx) => (
+          <CategoryPngButton
             key={cat.id}
-            type="button"
-            onClick={() => handleJump(cat.id)}
-            style={{ backgroundColor: cat.color, color: cat.textColor }}
-            className="group relative flex flex-col items-center justify-between p-4 rounded-3xl border-4 border-slate-900 shadow-[0_6px_0_#1E1E24] hover:-translate-y-1.5 active:translate-y-0 transition-all cursor-pointer"
-          >
-            {/* Big Icon Directly on Button (No Inner Circle or Square) */}
-            <img
-              src={cat.textColor === '#FFFFFF' ? cat.iconWhite : cat.iconColor}
-              onError={(e) => {
-                e.currentTarget.src = cat.iconColor;
-              }}
-              alt={cat.name}
-              className="w-20 h-20 sm:w-24 sm:h-24 object-contain my-1 group-hover:scale-110 group-hover:rotate-6 transition-transform drop-shadow-md"
-            />
-
-            <div className="flex flex-col items-center mt-2">
-              <span className="font-display font-bold text-sm sm:text-base text-center leading-tight">
-                {cat.shortName}
-              </span>
-
-              <span className="mt-1.5 text-[10px] font-extrabold uppercase tracking-wider opacity-90 px-2.5 py-0.5 rounded-full bg-black/15">
-                {cat.customizable ? '1-Click + Custom' : '1-Click Buy'}
-              </span>
-            </div>
-          </button>
+            category={cat}
+            index={idx}
+            onSelect={onSelectCategory}
+          />
         ))}
       </div>
     </section>

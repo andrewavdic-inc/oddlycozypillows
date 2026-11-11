@@ -1,32 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShoppingBag,
-  Sparkles,
-  CloudRain,
-  CloudSnow,
-  Sun,
-  Bird,
   Volume2,
   VolumeX,
   Wand2,
+  Snowflake,
+  Flame,
+  LayoutGrid,
 } from 'lucide-react';
 import { resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
-
-const WEATHER_BUTTONS = [
-  { id: 'confetti', label: 'Confetti', icon: Sparkles, color: 'bg-pink-500 text-white' },
-  { id: 'sunshine', label: 'Sunshine', icon: Sun, color: 'bg-amber-400 text-slate-900' },
-  { id: 'rain', label: 'Rain', icon: CloudRain, color: 'bg-sky-500 text-white' },
-  { id: 'snow', label: 'Snow', icon: CloudSnow, color: 'bg-indigo-500 text-white' },
-  { id: 'birds', label: 'Birds', icon: Bird, color: 'bg-lime-500 text-slate-900' },
-];
 
 export default function Navbar({
   cartCount,
   onOpenCart,
   onOpenBlankCustomizer,
-  activeWeather,
-  setActiveWeather,
+  currentPage,
+  onNavigateHomeSection,
+  onOpenFullCatalog,
   isMuted,
   onToggleMute,
 }) {
@@ -43,23 +34,19 @@ export default function Navbar({
     return () => clearInterval(timer);
   }, []);
 
-  const handleWeatherClick = (id) => {
-    soundFX.playPop();
-    setActiveWeather(activeWeather === id ? 'none' : id);
-  };
-
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b-4 border-slate-900 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-3">
-        {/* Brand Logo: Large Mascot Without Any Box Around Him */}
-        <a
-          href="#top"
+        {/* Brand Logo */}
+        <button
+          type="button"
           onClick={() => {
             soundFX.playMascotSqueak();
             setNavBlink(true);
             setTimeout(() => setNavBlink(false), 250);
+            onNavigateHomeSection('top');
           }}
-          className="flex items-center gap-3 group"
+          className="flex items-center gap-3 group text-left"
         >
           <img
             src={navBlink ? blinkColorLogo : openColorLogo}
@@ -67,7 +54,7 @@ export default function Navbar({
               e.currentTarget.src = '/logo-full-color.svg';
             }}
             alt="Oddly Cozy Pillows Mascot"
-            className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform"
+            className="w-14 h-14 sm:w-16 sm:h-16 object-contain drop-shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform"
           />
           <div>
             <span className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
@@ -78,33 +65,60 @@ export default function Navbar({
               Custom Pillow Studio & Giant Plushies
             </span>
           </div>
-        </a>
+        </button>
 
-        {/* Interactive Weather & Atmosphere Controls */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-full border-2 border-slate-900 overflow-x-auto max-w-full">
-          <span className="text-[11px] font-extrabold uppercase tracking-wider px-2 text-slate-600 hidden md:inline">
-            Vibe FX:
-          </span>
-          {WEATHER_BUTTONS.map((btn) => {
-            const Icon = btn.icon;
-            const isActive = activeWeather === btn.id;
-            return (
-              <button
-                key={btn.id}
-                type="button"
-                onClick={() => handleWeatherClick(btn.id)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
-                  isActive
-                    ? `${btn.color} border-2 border-slate-900 shadow-[0_2px_0_#1E1E24] scale-105`
-                    : 'text-slate-700 hover:bg-white'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{btn.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Standard E-Commerce Navigation Links */}
+        <nav className="hidden xl:flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-full border-2 border-slate-900">
+          <button
+            type="button"
+            onClick={() => onNavigateHomeSection('winter-collection')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-extrabold text-slate-800 hover:bg-sky-500 hover:text-white transition-colors"
+          >
+            <Snowflake className="w-3.5 h-3.5 text-sky-500 group-hover:text-white" />
+            Winter Collection
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateHomeSection('most-popular')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-extrabold text-slate-800 hover:bg-amber-400 hover:text-slate-900 transition-colors"
+          >
+            <Flame className="w-3.5 h-3.5 text-rose-500" />
+            Most Popular
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateHomeSection('printed-pillows')}
+            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold text-slate-800 hover:bg-[#FF595E] hover:text-white transition-colors"
+          >
+            Printed Pillows
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onNavigateHomeSection('oddly-cozy-pillows')}
+            className="px-3.5 py-1.5 rounded-full text-xs font-extrabold text-slate-800 hover:bg-[#FF924C] hover:text-white transition-colors"
+          >
+            Oddly Cozy Pillows
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              soundFX.playPop();
+              onOpenFullCatalog('all');
+            }}
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold transition-all ${
+              currentPage === 'catalog'
+                ? 'bg-slate-900 text-amber-300 shadow'
+                : 'bg-white text-slate-900 border border-slate-300 hover:bg-slate-900 hover:text-white'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            All 7 Categories
+          </button>
+        </nav>
 
         {/* Right Actions: Custom Studio, Sound Mute, Cart */}
         <div className="flex items-center gap-2">
@@ -114,10 +128,10 @@ export default function Navbar({
               soundFX.playBoing();
               onOpenBlankCustomizer();
             }}
-            className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#FFCA3A] text-slate-900 font-bold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] hover:-translate-y-0.5 transition-transform"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#FFCA3A] text-slate-900 font-bold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] hover:-translate-y-0.5 transition-transform"
           >
             <Wand2 className="w-4 h-4" />
-            Create Your Own Pillow
+            Customize a Pillow
           </button>
 
           <button

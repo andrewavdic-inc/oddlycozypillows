@@ -2,7 +2,7 @@
 const ALL_FILES = typeof __PUBLIC_FILES__ !== 'undefined' ? __PUBLIC_FILES__ : [];
 
 /**
- * Returns all image URLs inside a specific public subfolder (e.g. 'printed pillows', 'rugs', 'toys')
+ * Returns all image URLs inside a specific public subfolder
  */
 export function getFolderImages(folderName) {
   const target = folderName.toLowerCase().trim();
@@ -32,6 +32,23 @@ export function resolveCategoryImage(folderName, keywords = [], fallbackIndex = 
 }
 
 /**
+ * Resolves the new transparent PNG category button images (with automatic .png / .jpg fallback)
+ */
+export function resolveButtonImage(baseName, fallbackUrl = '') {
+  const cleanBase = baseName.toLowerCase().replace(/\.(png|jpg|jpeg|webp)$/i, '');
+  const found = ALL_FILES.find((f) => {
+    const lower = f.toLowerCase();
+    return (
+      lower.includes(`${cleanBase}.png`) ||
+      lower.includes(`${cleanBase}.webp`) ||
+      lower.includes(`${cleanBase}.jpg`) ||
+      lower.includes(`${cleanBase}.jpeg`)
+    );
+  });
+  return found || `/${cleanBase}.png` || fallbackUrl;
+}
+
+/**
  * Finds the hero room banner image in public/ or public/images/
  */
 export function resolveBannerImage() {
@@ -40,6 +57,7 @@ export function resolveBannerImage() {
     (f) =>
       !f.toLowerCase().startsWith('/icons/') &&
       !f.toLowerCase().includes('/logo') &&
+      !f.toLowerCase().includes('_button') &&
       /\.(jpg|jpeg|png|webp|avif)$/i.test(f)
   );
 
@@ -51,13 +69,10 @@ export function resolveBannerImage() {
 }
 
 /**
- * Resolves your 12 Logo Variants:
- * - color / black / white
- * - open eyes vs blink (eyes closed)
- * - standard vs +website url
+ * Resolves your 12 Logo Variants
  */
 export function resolveLogoVariant({
-  theme = 'color', // 'color' | 'black' | 'white'
+  theme = 'color',
   blink = false,
   withUrl = false,
 } = {}) {
@@ -75,16 +90,13 @@ export function resolveLogoVariant({
       const name = file.toLowerCase();
       let score = 0;
 
-      // Theme match
       if (theme === 'color' && (name.includes('color') || name.includes('full'))) score += 5;
       if (theme === 'black' && (name.includes('black') || name.includes('blk') || name.includes('dark') || name.includes('bw'))) score += 5;
       if (theme === 'white' && (name.includes('white') || name.includes('wht') || name.includes('light'))) score += 5;
 
-      // Blink / eyes closed match
       const isBlinkFile = name.includes('blink') || name.includes('closed') || name.includes('sleep') || name.includes('wink');
       if (blink === isBlinkFile) score += 4;
 
-      // URL match
       const isUrlFile = name.includes('url') || name.includes('web') || name.includes('.com') || name.includes('site');
       if (withUrl === isUrlFile) score += 3;
 
@@ -97,7 +109,6 @@ export function resolveLogoVariant({
     }
   }
 
-  // Standard naming fallbacks
   const prefix =
     theme === 'black'
       ? '/logo-black'

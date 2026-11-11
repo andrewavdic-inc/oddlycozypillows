@@ -1,14 +1,18 @@
 export const INITIAL_CMS_SETTINGS = {
   adminPin: '2026',
   announcementEnabled: true,
-  announcementText: '✨ Free Tracked Shipping on All Cozy Orders! Use code COZY15 for 15% Off!',
+  announcementText: '🎄 Holiday Gift Guide Is Live! Free Tracked Shipping + Use Code COZY15 for 15% Off!',
   announcementBg: '#1E1E24',
+  winterTitle: 'Winter & Holiday Collection',
+  winterSubtitle: 'Limited-edition cozy bundles, chunky throws, and gift-ready pillows for everyone on your list.',
+  popularTitle: 'Most Popular Favorites',
+  popularSubtitle: 'Our 8 highest-rated pillows, plushies, and cozy room essentials.',
   heroBadge: 'Oddly Themed & Oddly Shaped',
   heroHeadline: 'Pillows That Make Your Room',
   heroHighlight: 'Way More Fun.',
   heroSubtitle:
     'Buy our signature graphic pillows & blankets in 1 click, customize sizes and patterns in real time, or snuggle up with giant 3D plushies!',
-  defaultWeather: 'confetti',
+  defaultWeather: 'none',
   defaultLightOn: false,
   defaultBeamRadius: 190,
   etransferEmail: 'pay@oddlycozypillows.com',
@@ -22,7 +26,7 @@ export const INITIAL_PROMO_CODES = [
 export const INITIAL_ORDERS = [
   {
     id: 'OCP-849201',
-    createdAt: '2026-11-04 11:15 AM',
+    createdAt: '2026-11-11 11:15 AM',
     customerName: 'Sarah Jenkins',
     customerEmail: 'sarah.jenkins@example.com',
     shippingAddress: '142 Lakeshore Rd, St. Catharines, ON L2N 2T6',
@@ -60,7 +64,7 @@ export const INITIAL_ORDERS = [
   },
   {
     id: 'OCP-849188',
-    createdAt: '2026-11-04 09:40 AM',
+    createdAt: '2026-11-11 09:40 AM',
     customerName: 'Marcus Vance',
     customerEmail: 'mvance@example.com',
     shippingAddress: '88 Queen St W, Toronto, ON M5H 2M9',
@@ -90,7 +94,7 @@ export const INITIAL_ORDERS = [
 export const INITIAL_CUSTOM_PROOFS = [
   {
     id: 'PRF-301',
-    createdAt: '2026-11-04 10:05 AM',
+    createdAt: '2026-11-11 10:05 AM',
     customerEmail: 'dogmom99@example.com',
     itemType: 'pillow',
     sizeLabel: '22" × 22" (Oversized Lounge)',
@@ -99,7 +103,7 @@ export const INITIAL_CUSTOM_PROOFS = [
       'Please cut out my French Bulldog Barnaby and repeat him in a checkered pattern with little croissants on a pastel pink background!',
     referenceImage: '/icons/printed-pillow.svg',
     mockupProofImage: '',
-    status: 'Needs Mockup', // 'Needs Mockup' | 'Proof Sent' | 'Approved'
+    status: 'Needs Mockup',
     operatorNotes: 'Customer uploaded clear photo. Ready for background removal.',
   },
 ];

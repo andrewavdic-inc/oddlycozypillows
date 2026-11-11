@@ -14,6 +14,7 @@ export default {
         'float': 'float 4s ease-in-out infinite',
         'float-delayed': 'float 4.5s ease-in-out 1.5s infinite',
         'wiggle': 'wiggle 1s ease-in-out infinite',
+        'rock-slow': 'rockSlow 3.6s ease-in-out infinite',
         'pulse-glow': 'pulseGlow 2.5s ease-in-out infinite',
       },
       keyframes: {
@@ -24,6 +25,10 @@ export default {
         wiggle: {
           '0%, 100%': { transform: 'rotate(-4deg)' },
           '50%': { transform: 'rotate(4deg)' },
+        },
+        rockSlow: {
+          '0%, 100%': { transform: 'rotate(-3.5deg)' },
+          '50%': { transform: 'rotate(3.5deg)' },
         },
         pulseGlow: {
           '0%, 100%': { opacity: 1, transform: 'scale(1)' },
