@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ShoppingBag, Wand2, Check, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingBag, Wand2, Maximize2 } from 'lucide-react';
 import { soundFX } from '../../utils/soundEffects';
 
 export default function ProductCard({
@@ -7,101 +7,107 @@ export default function ProductCard({
   categoryColor,
   onBuyAsShown,
   onCustomizeProduct,
+  onInspectProduct,
 }) {
   const [imgSrc, setImgSrc] = useState(product.image);
-  const [justAdded, setJustAdded] = useState(false);
 
-  const handleOneClickBuy = () => {
+  useEffect(() => {
+    setImgSrc(product.image);
+  }, [product.image]);
+
+  const handleOneClickBuy = (e) => {
+    e.stopPropagation();
     soundFX.playSparkleChime();
     onBuyAsShown(product);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 1400);
+  };
+
+  const handleCustomizeClick = (e) => {
+    e.stopPropagation();
+    soundFX.playBoing();
+    onCustomizeProduct(product);
   };
 
   return (
-    <div className="bg-white text-slate-900 rounded-3xl border-4 border-slate-900 shadow-[0_8px_0_#1E1E24] overflow-hidden flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1.5">
-      <div>
-        {/* Product Image Container */}
-        <div className="relative h-60 bg-slate-100 border-b-4 border-slate-900 overflow-hidden group">
-          <img
-            src={imgSrc}
-            onError={() => {
-              if (imgSrc !== product.fallbackImage) {
-                setImgSrc(product.fallbackImage);
-              }
-            }}
-            alt={product.name}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 p-2 rounded-2xl"
-          />
+    <div className="bg-white text-slate-900 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] overflow-hidden flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1">
+      {/* Clickable Product Image -> Opens Frameless Lightbox */}
+      <div
+        onClick={() => {
+          soundFX.playPop();
+          onInspectProduct?.(product);
+        }}
+        role="button"
+        tabIndex={0}
+        title="Click to view full photo & details"
+        className="relative h-64 bg-slate-100 overflow-hidden group cursor-zoom-in"
+      >
+        <img
+          src={imgSrc}
+          onError={() => {
+            if (product.fallbackImage && imgSrc !== product.fallbackImage) {
+              setImgSrc(product.fallbackImage);
+            }
+          }}
+          alt={product.name}
+          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+        />
 
-          {/* Top-Left Badge */}
-          {product.badge && (
-            <span
-              style={{ backgroundColor: categoryColor }}
-              className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-extrabold text-white border-2 border-slate-900 shadow"
-            >
-              {product.badge}
-            </span>
-          )}
-
-          {/* Price Pill */}
-          <span className="absolute bottom-3 right-3 px-3.5 py-1 rounded-full bg-slate-900 text-amber-300 font-display text-lg font-bold border-2 border-white shadow-md">
-            ${product.price.toFixed(2)}
+        {/* Top-Left Badge */}
+        {product.badge && (
+          <span
+            style={{ backgroundColor: categoryColor || '#FF595E' }}
+            className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-extrabold text-white shadow-md"
+          >
+            {product.badge}
           </span>
-        </div>
+        )}
 
-        {/* Product Details */}
-        <div className="p-5">
-          <p className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-            {product.subtitle}
-          </p>
-          <h3 className="font-display text-xl font-bold text-slate-900 mt-1">
-            {product.name}
-          </h3>
-          <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-            {product.description}
-          </p>
-        </div>
+        {/* Subtle Expand Photo Cue on Hover */}
+        <span className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-900/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+          <Maximize2 className="w-4 h-4" />
+        </span>
+
+        {/* Price Pill */}
+        <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-slate-900/90 backdrop-blur-sm text-amber-300 font-display text-base font-bold shadow-md">
+          ${Number(product.price).toFixed(2)}
+        </span>
       </div>
 
-      {/* Action Buttons: 1-Click Buy As Shown + Conditional Customize */}
-      <div className="px-5 pb-5 pt-2 flex flex-col gap-2.5">
-        <button
-          type="button"
-          onClick={handleOneClickBuy}
-          className={`w-full py-3 px-4 rounded-2xl font-extrabold text-sm border-2 border-slate-900 shadow-[0_4px_0_#1E1E24] flex items-center justify-center gap-2 transition-all ${
-            justAdded
-              ? 'bg-emerald-500 text-white'
-              : 'bg-[#FF595E] hover:bg-[#e0484d] text-white active:translate-y-0.5'
-          }`}
-        >
-          {justAdded ? (
-            <>
-              <Check className="w-4 h-4" />
-              Added As Shown!
-            </>
-          ) : (
-            <>
-              <ShoppingBag className="w-4 h-4" />
-              1-Click Buy As Shown (${product.price.toFixed(2)})
-            </>
-          )}
-        </button>
+      {/* Compact Title & Small Round Buttons (No Description Clutter) */}
+      <div className="p-4 flex flex-col gap-3">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">
+            {product.subtitle}
+          </p>
+          <h3
+            onClick={() => onInspectProduct?.(product)}
+            className="font-display text-lg font-bold text-slate-900 leading-snug line-clamp-1 cursor-pointer hover:text-[#FF595E] transition-colors"
+          >
+            {product.name}
+          </h3>
+        </div>
 
-        {product.customizable && (
+        {/* Small Round Pill Buttons */}
+        <div className="flex items-center justify-between gap-2 pt-1">
           <button
             type="button"
-            onClick={() => {
-              soundFX.playBoing();
-              onCustomizeProduct(product);
-            }}
-            className="w-full py-2.5 px-4 rounded-2xl bg-[#FFCA3A] hover:bg-amber-300 text-slate-900 font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] flex items-center justify-center gap-1.5 transition-all"
+            onClick={handleOneClickBuy}
+            className="px-4 py-2 rounded-full bg-[#FF595E] hover:bg-[#e0484d] text-white font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] inline-flex items-center justify-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
           >
-            <Wand2 className="w-4 h-4" />
-            Customize Size, Layout or Upload PNG
-            <Sparkles className="w-3.5 h-3.5" />
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>Buy</span>
           </button>
-        )}
+
+          {product.customizable && (
+            <button
+              type="button"
+              onClick={handleCustomizeClick}
+              className="px-3.5 py-2 rounded-full bg-[#FFCA3A] hover:bg-amber-300 text-slate-900 font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] inline-flex items-center justify-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              <span>Customize this</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

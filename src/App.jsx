@@ -5,6 +5,7 @@ import Navbar from './components/layout/Navbar';
 import CategoryBubbles from './components/layout/CategoryBubbles';
 import FeaturedGridSection from './components/shop/FeaturedGridSection';
 import FullCatalogPage from './components/shop/FullCatalogPage';
+import ProductLightboxModal from './components/shop/ProductLightboxModal';
 import InlineCustomizerSection from './components/customizer/InlineCustomizerSection';
 import CustomizerModal from './components/customizer/CustomizerModal';
 import CartDrawer from './components/checkout/CartDrawer';
@@ -16,12 +17,13 @@ import AdminPinModal from './components/admin/AdminPinModal';
 import AdminDashboard from './components/admin/AdminDashboard';
 
 export default function App() {
-  const { products, cms, addCustomProof } = useStore();
+  const { products, cms, addCustomProof, addOrder } = useStore();
 
   const [cart, setCart] = useState([]);
-  const [currentPage, setCurrentPage] = useState('home'); // 'home' | 'catalog'
+  const [currentPage, setCurrentPage] = useState('home');
   const [catalogTargetCategory, setCatalogTargetCategory] = useState('all');
 
+  const [inspectedProduct, setInspectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [customizerState, setCustomizerState] = useState({
@@ -32,7 +34,6 @@ export default function App() {
   const [activeWeather, setActiveWeather] = useState('none');
   const [isMuted, setIsMuted] = useState(false);
 
-  // Admin Portal States
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
 
@@ -64,6 +65,7 @@ export default function App() {
     });
   };
 
+  // Clicking Buy adds the item AND immediately opens the frameless shopping cart window
   const handleBuyAsShown = (product) => {
     handleAddToCart({
       id: `${product.id}-${Date.now()}`,
@@ -76,6 +78,7 @@ export default function App() {
       quantity: 1,
       image: product.image || product.fallbackImage,
     });
+    setIsCartOpen(true);
   };
 
   const handleUpdateQty = (id, newQty) => {
@@ -93,7 +96,6 @@ export default function App() {
     setIsMuted(muted);
   };
 
-  // Clicking any of the 8 rotating PNG buttons opens the Full Catalog Page at that category
   const handleSelectCategoryButton = (category) => {
     setCatalogTargetCategory(category.isAllButton ? 'all' : category.id);
     setCurrentPage('catalog');
@@ -161,7 +163,6 @@ export default function App() {
 
       {currentPage === 'home' ? (
         <main className="flex-1">
-          {/* 8 Tightly-Spaced Rotating Transparent PNG Category Buttons */}
           <CategoryBubbles onSelectCategory={handleSelectCategoryButton} />
 
           {/* 1. Winter Collection Section (8 Items) */}
@@ -182,6 +183,7 @@ export default function App() {
                 defaultType: product.productType || 'pillow',
               })
             }
+            onInspectProduct={(product) => setInspectedProduct(product)}
             onOpenCustomizer={() => handleNavigateHomeSection('customizer-section')}
           />
 
@@ -203,6 +205,7 @@ export default function App() {
                 defaultType: product.productType || 'pillow',
               })
             }
+            onInspectProduct={(product) => setInspectedProduct(product)}
           />
 
           {/* 3. Embedded Interactive Pillow & Blanket Customizer at the Bottom of Home Page */}
@@ -229,6 +232,7 @@ export default function App() {
               defaultType: product.productType || 'pillow',
             })
           }
+          onInspectProduct={(product) => setInspectedProduct(product)}
           onOpenUploadCustomizer={(type) =>
             setCustomizerState({
               isOpen: true,
@@ -254,6 +258,20 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Frameless Full-Photo Merchandise Lightbox */}
+      <ProductLightboxModal
+        product={inspectedProduct}
+        onClose={() => setInspectedProduct(null)}
+        onBuyAsShown={handleBuyAsShown}
+        onCustomizeProduct={(product) =>
+          setCustomizerState({
+            isOpen: true,
+            product,
+            defaultType: product.productType || 'pillow',
+          })
+        }
+      />
 
       {/* Floating Bottom Flashlight Icon & Hidden Room Game */}
       <FlashlightGameModal
@@ -287,6 +305,7 @@ export default function App() {
         }}
       />
 
+      {/* Frameless Floating Shopping Cart Window */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}

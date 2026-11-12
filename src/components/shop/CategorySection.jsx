@@ -10,10 +10,11 @@ export default function CategorySection({
   products,
   onBuyAsShown,
   onCustomizeProduct,
+  onInspectProduct,
   onOpenUploadCustomizer,
 }) {
   const simplifiedLogoWithUrl = resolveLogoVariant({
-    theme: category.logoTheme, // 'white' on dark sections, 'black' on yellow/green sections
+    theme: category.logoTheme,
     blink: false,
     withUrl: true,
   });
@@ -25,10 +26,8 @@ export default function CategorySection({
       className="relative py-16 sm:py-20 border-t-4 border-slate-900 transition-colors"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Section Header + Big Unboxed Icon + Floating Mascot */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-10">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            {/* Large Unboxed Category Icon */}
             <img
               src={category.textColor === '#FFFFFF' ? category.iconWhite : category.iconColor}
               onError={(e) => {
@@ -44,7 +43,6 @@ export default function CategorySection({
                   {category.badge}
                 </span>
 
-                {/* Simplified Black/White Logo + URL Badge */}
                 <img
                   src={simplifiedLogoWithUrl}
                   onError={(e) => {
@@ -64,7 +62,6 @@ export default function CategorySection({
             </div>
           </div>
 
-          {/* Floating Puff Mascot (Uses Real Blinking Mascot Logo) */}
           <div className="self-center lg:self-auto">
             <StuffingMascot
               theme={category.logoTheme === 'black' ? 'black' : 'color'}
@@ -75,7 +72,6 @@ export default function CategorySection({
           </div>
         </div>
 
-        {/* Upload Your Own PNG Banner for Printed Pillows & Printed Blankets */}
         {category.customizable && (
           <div className="mb-10 p-5 sm:p-6 rounded-3xl bg-white text-slate-900 border-4 border-slate-900 shadow-[0_8px_0_#1E1E24] flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -101,7 +97,7 @@ export default function CategorySection({
                 soundFX.playBoing();
                 onOpenUploadCustomizer(category.productType);
               }}
-              className="px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-rose-600 text-white font-extrabold text-sm border-2 border-slate-900 shadow-[0_4px_0_#FFCA3A] flex items-center gap-2 shrink-0 transition-colors"
+              className="px-6 py-3 rounded-full bg-slate-900 hover:bg-rose-600 text-white font-extrabold text-xs sm:text-sm border-2 border-slate-900 shadow-[0_4px_0_#FFCA3A] flex items-center gap-2 shrink-0 transition-colors"
             >
               <Wand2 className="w-4 h-4 text-amber-300" />
               Upload & Customize Your Own
@@ -109,7 +105,6 @@ export default function CategorySection({
           </div>
         )}
 
-        {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {products.map((product) => (
             <ProductCard
@@ -118,6 +113,7 @@ export default function CategorySection({
               categoryColor={category.cardAccent}
               onBuyAsShown={onBuyAsShown}
               onCustomizeProduct={onCustomizeProduct}
+              onInspectProduct={onInspectProduct}
             />
           ))}
         </div>

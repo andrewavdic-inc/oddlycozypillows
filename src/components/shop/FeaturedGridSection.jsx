@@ -6,12 +6,13 @@ import { soundFX } from '../../utils/soundEffects';
 
 export default function FeaturedGridSection({
   id,
-  theme = 'winter', // 'winter' | 'popular'
+  theme = 'winter',
   title,
   subtitle,
   products,
   onBuyAsShown,
   onCustomizeProduct,
+  onInspectProduct,
   onOpenCustomizer,
 }) {
   const isWinter = theme === 'winter';
@@ -26,7 +27,6 @@ export default function FeaturedGridSection({
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Section Header */}
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 mb-10">
           <div>
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-extrabold uppercase tracking-wider mb-3 shadow">
@@ -73,13 +73,12 @@ export default function FeaturedGridSection({
                 theme="color"
                 size="md"
                 showControls={true}
-                customQuote="Cozy up for the holidays! Here are our top 8 Winter Gift Picks!"
+                customQuote="Click any product photo to see it up close!"
               />
             </div>
           )}
         </div>
 
-        {/* 8-Item Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {products.slice(0, 8).map((product) => (
             <ProductCard
@@ -88,6 +87,7 @@ export default function FeaturedGridSection({
               categoryColor={isWinter ? '#0284C7' : '#FF595E'}
               onBuyAsShown={onBuyAsShown}
               onCustomizeProduct={onCustomizeProduct}
+              onInspectProduct={onInspectProduct}
             />
           ))}
         </div>

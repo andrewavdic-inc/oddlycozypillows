@@ -11,6 +11,7 @@ export default function FullCatalogPage({
   onBackToHome,
   onBuyAsShown,
   onCustomizeProduct,
+  onInspectProduct,
   onOpenUploadCustomizer,
   onAddCustomRequestToCart,
 }) {
@@ -28,13 +29,16 @@ export default function FullCatalogPage({
   }, [initialCategoryId]);
 
   const handleJumpInCatalog = (cat) => {
+    if (cat.isAllButton) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     const el = document.getElementById(cat.id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
     <div className="min-h-screen bg-[#FFFDF9]">
-      {/* Top Sub-Header Banner */}
       <div className="bg-slate-900 text-white py-8 border-b-4 border-slate-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -54,16 +58,14 @@ export default function FullCatalogPage({
               <Sparkles className="w-7 h-7 text-amber-300" />
             </h1>
             <p className="text-sm text-slate-300 mt-1">
-              Browse our complete collection of Printed Pillows, Giant Plushies, Blankets, Matching Sets, Rugs, Squishies & Custom Orders.
+              Click any product image to view it full-screen with its description, or click Buy / Customize this!
             </p>
           </div>
         </div>
       </div>
 
-      {/* Rotating PNG Category Jump Buttons */}
       <CategoryBubbles onSelectCategory={handleJumpInCatalog} />
 
-      {/* All 7 Category Sections */}
       {categories.map((category) => {
         const categoryProducts = products.filter(
           (p) => p.categoryId === category.id && p.inStock !== false
@@ -75,12 +77,12 @@ export default function FullCatalogPage({
             products={categoryProducts}
             onBuyAsShown={onBuyAsShown}
             onCustomizeProduct={onCustomizeProduct}
+            onInspectProduct={onInspectProduct}
             onOpenUploadCustomizer={onOpenUploadCustomizer}
           />
         );
       })}
 
-      {/* Totally Custom Orders Concierge Form */}
       <CustomOrderSection onAddCustomRequestToCart={onAddCustomRequestToCart} />
     </div>
   );
