@@ -32,7 +32,7 @@ export function resolveCategoryImage(folderName, keywords = [], fallbackIndex = 
 }
 
 /**
- * Resolves the new transparent PNG category button images (with automatic .png / .jpg fallback)
+ * Resolves the transparent PNG category button images (with automatic .png / .jpg fallback)
  */
 export function resolveButtonImage(baseName, fallbackUrl = '') {
   const cleanBase = baseName.toLowerCase().replace(/\.(png|jpg|jpeg|webp)$/i, '');
@@ -49,6 +49,27 @@ export function resolveButtonImage(baseName, fallbackUrl = '') {
 }
 
 /**
+ * Discovers and numerically sorts all Wakeup01.png - Wakeup49.png frames in public/
+ */
+export function getWakeupFrames() {
+  const discovered = ALL_FILES.filter((f) => /wakeup\s*\d+\.(png|webp|jpg)$/i.test(f));
+
+  if (discovered.length > 0) {
+    return [...discovered].sort((a, b) => {
+      const numA = parseInt(a.match(/(\d+)\.(png|webp|jpg)$/i)?.[1] || '0', 10);
+      const numB = parseInt(b.match(/(\d+)\.(png|webp|jpg)$/i)?.[1] || '0', 10);
+      return numA - numB;
+    });
+  }
+
+  // Fallback array for Wakeup01.png - Wakeup46.png inside public/wake up PNGs/
+  return Array.from({ length: 46 }, (_, i) => {
+    const num = String(i + 1).padStart(2, '0');
+    return `/wake up PNGs/Wakeup${num}.png`;
+  });
+}
+
+/**
  * Finds the hero room banner image in public/ or public/images/
  */
 export function resolveBannerImage() {
@@ -58,6 +79,7 @@ export function resolveBannerImage() {
       !f.toLowerCase().startsWith('/icons/') &&
       !f.toLowerCase().includes('/logo') &&
       !f.toLowerCase().includes('_button') &&
+      !f.toLowerCase().includes('wakeup') &&
       /\.(jpg|jpeg|png|webp|avif)$/i.test(f)
   );
 

@@ -1,0 +1,416 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import confetti from 'canvas-confetti';
+import { Sparkles, Wand2, Tag, Check } from 'lucide-react';
+import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
+import { soundFX } from '../../utils/soundEffects';
+
+const WAKEUP_FRAMES = getWakeupFrames();
+
+const SECTION_PITCHES = {
+  'winter-collection': {
+    text: '🎄 Our Winter Collection is flying off the shelves! Click any photo to see it full-screen, or use code COZY15 for 15% off!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+  'most-popular': {
+    text: '🔥 These are our #1 customer favorites! The French Fries & Cookiemon pillows make unforgettable gifts!',
+    ctaLabel: 'Customize a Pillow',
+    ctaType: 'open-customizer',
+  },
+  'customizer-section': {
+    text: '✨ Try Checkered or Chaotic mode below! You can even upload your own pet photo or artwork!',
+    ctaLabel: 'Copy Promo COZY15',
+    ctaType: 'copy-code',
+  },
+  'printed-pillows': {
+    text: '🍟 Every Printed Pillow can be bought in 1 click OR customized in 6 sizes & 5 fun layouts!',
+    ctaLabel: 'Open Pillow Studio',
+    ctaType: 'open-customizer',
+  },
+  'oddly-cozy-pillows': {
+    text: '🥐 Our Giant 3D Plushies are overstuffed for maximum couch naps! Stack 2 or 3 for the ultimate setup!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+  'printed-blankets': {
+    text: '🥤 Our Printed Blankets come in 3 snuggle-ready sizes—try customizing one in Checkered mode!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+  'oddly-cozy-blankets': {
+    text: '🍳 Wrap yourself inside a giant Sunny-Side Up Egg or Chunky Cloud Knit blanket!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+  'matching-sets': {
+    text: '🎁 Best Value Alert! Matching Sets give you 2 Printed Pillows + 1 Cozy Blanket and save you $18!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+  rugs: {
+    text: '🍕 Step out of bed onto a giant Pepperoni Pizza, Donut, or Chocolate Chip Cookie rug!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+  toys: {
+    text: '🥟 Need desk stress relief? Our slow-rising squishies are super satisfying to squeeze!',
+    ctaLabel: 'Copy COZY15 (15% Off)',
+    ctaType: 'copy-code',
+  },
+};
+
+export default function SmartFloatingMascot({
+  currentPage,
+  onOpenCustomizer,
+}) {
+  // Lifecycle: 'awake' | 'goodbye' | 'poofing' | 'sleeping' | 'waking'
+  const [phase, setPhase] = useState('awake');
+  const [isBlinking, setIsBlinking] = useState(false);
+  const [pitch, setPitch] = useState(SECTION_PITCHES['winter-collection']);
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  // Sleeping & 3-Tap Wake-Up States
+  const [tapCount, setTapCount] = useState(0);
+  const [frameIndex, setFrameIndex] = useState(0);
+  const [isLaunchingUp, setIsLaunchingUp] = useState(false);
+
+  const timerRef = useRef(null);
+  const goodbyeRef = useRef(null);
+
+  const openLogo = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
+  const blinkLogo = resolveLogoVariant({ theme: 'color', blink: true, withUrl: false });
+
+  // Preload the Wakeup PNG frames in the background
+  useEffect(() => {
+    WAKEUP_FRAMES.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
+
+  // Natural blinking loop while awake
+  useEffect(() => {
+    if (phase !== 'awake') return;
+    const interval = setInterval(() => {
+      setIsBlinking(true);
+      setTimeout(() => setIsBlinking(false), 200);
+    }, 3200 + Math.random() * 1500);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  // 20-Second Active Timer -> Says Goodbye -> Plays pop.mp3 -> Goes to Sleep at Bottom
+  const startTwentySecondTimer = useCallback(() => {
+    clearTimeout(timerRef.current);
+    clearTimeout(goodbyeRef.current);
+
+    goodbyeRef.current = setTimeout(() => {
+      setPhase('goodbye');
+      soundFX.playMascotSqueak();
+    }, 16800);
+
+    timerRef.current = setTimeout(() => {
+      soundFX.playDisappearPopMp3();
+      setPhase('poofing');
+      setTimeout(() => {
+        setTapCount(0);
+        setFrameIndex(0);
+        setPhase('sleeping');
+      }, 380);
+    }, 20000);
+  }, []);
+
+  useEffect(() => {
+    if (phase === 'awake') {
+      startTwentySecondTimer();
+    }
+    return () => {
+      clearTimeout(timerRef.current);
+      clearTimeout(goodbyeRef.current);
+    };
+  }, [phase, startTwentySecondTimer]);
+
+  // Scroll & Hover Intelligence: Detect which section or product card the user is viewing
+  useEffect(() => {
+    if (phase !== 'awake') return;
+
+    const handleScroll = () => {
+      const sectionIds = Object.keys(SECTION_PITCHES);
+      const viewportCenter = window.innerHeight * 0.45;
+
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= viewportCenter && rect.bottom >= viewportCenter) {
+            setPitch((prev) =>
+              prev.text !== SECTION_PITCHES[id].text ? SECTION_PITCHES[id] : prev
+            );
+            break;
+          }
+        }
+      }
+    };
+
+    const handleMouseOver = (e) => {
+      const cardTitleEl = e.target.closest('[data-product-title]');
+      if (cardTitleEl) {
+        const title = cardTitleEl.getAttribute('data-product-title');
+        const price = cardTitleEl.getAttribute('data-product-price');
+        const isCustom = cardTitleEl.getAttribute('data-product-custom') === 'true';
+        if (title) {
+          setPitch({
+            text: isCustom
+              ? `👀 Checking out the ${title} ($${price})? Click "Customize this" to preview it in Checkered or Chaotic mode!`
+              : `😍 The ${title} ($${price}) is a total crowd-pleaser! Click its photo to see it full-screen!`,
+            ctaLabel: isCustom ? 'Open Customizer' : 'Use Code COZY15',
+            ctaType: isCustom ? 'open-customizer' : 'copy-code',
+          });
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('mouseover', handleMouseOver, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('mouseover', handleMouseOver);
+    };
+  }, [phase, currentPage]);
+
+  // Handle 1-Click Sales Action inside Speech Bubble
+  const handlePromptAction = (e) => {
+    e.stopPropagation();
+    startTwentySecondTimer();
+    if (pitch.ctaType === 'open-customizer') {
+      soundFX.playBoing();
+      onOpenCustomizer?.();
+    } else {
+      soundFX.playSparkleChime();
+      navigator.clipboard?.writeText('COZY15');
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    }
+  };
+
+  // Handle 3 Taps on Sleeping Mascot at Bottom of Screen
+  const handleSleepingTap = () => {
+    if (phase !== 'sleeping') return;
+    const nextTap = tapCount + 1;
+    setTapCount(nextTap);
+
+    if (nextTap < 3) {
+      soundFX.playGremlinGrumble(nextTap);
+    } else {
+      soundFX.playWakeupSequenceSound();
+      setPhase('waking');
+      setFrameIndex(0);
+      setIsLaunchingUp(false);
+
+      const totalFrames = WAKEUP_FRAMES.length;
+      let current = 0;
+
+      const animInterval = setInterval(() => {
+        current += 1;
+        if (current === Math.floor(totalFrames * 0.6)) {
+          setIsLaunchingUp(true);
+          confetti({
+            particleCount: 55,
+            spread: 75,
+            origin: { x: 0.12, y: 0.88 },
+            colors: ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#FF6392'],
+          });
+        }
+
+        if (current < totalFrames) {
+          setFrameIndex(current);
+        } else {
+          clearInterval(animInterval);
+          setIsLaunchingUp(false);
+          setPhase('awake');
+          setPitch({
+            text: "✨ *Squeak!* I'm wide awake and ready to help you find the coziest gifts!",
+            ctaLabel: 'Copy COZY15 (15% Off)',
+            ctaType: 'copy-code',
+          });
+        }
+      }, 45);
+    }
+  };
+
+  // ================= RENDER 1: SLEEPING OR WAKING UP AT BOTTOM OF SCREEN =================
+  if (phase === 'sleeping' || phase === 'waking') {
+    const activeFrameSrc =
+      phase === 'waking'
+        ? WAKEUP_FRAMES[frameIndex] || WAKEUP_FRAMES[0]
+        : WAKEUP_FRAMES[0];
+
+    return (
+      <div
+        className={`fixed bottom-3 left-4 sm:left-6 z-40 select-none flex flex-col items-center transition-all duration-700 ${
+          isLaunchingUp ? '-translate-y-72 scale-125 opacity-0' : 'translate-y-0 opacity-100'
+        }`}
+      >
+        {/* Floating Animated Zzz's while Sleeping */}
+        {phase === 'sleeping' && (
+          <div className="relative w-full h-10 pointer-events-none flex justify-center">
+            <span className="absolute bottom-0 left-1/2 font-display font-extrabold text-sm text-indigo-500 animate-bounce opacity-80">
+              z
+            </span>
+            <span
+              style={{ animationDelay: '0.4s' }}
+              className="absolute bottom-3 left-1/2 translate-x-3 font-display font-extrabold text-lg text-purple-600 animate-float"
+            >
+              Z
+            </span>
+            <span
+              style={{ animationDelay: '0.9s' }}
+              className="absolute bottom-6 left-1/2 -translate-x-4 font-display font-extrabold text-2xl text-sky-500 animate-float"
+            >
+              Zzz
+            </span>
+          </div>
+        )}
+
+        {/* Spectacular Shockwave Ring on Wake-Up */}
+        {phase === 'waking' && (
+          <div className="absolute inset-0 rounded-full bg-amber-300/40 animate-ping pointer-events-none" />
+        )}
+
+        {/* Borderless Sleeping / Waking Mascot PNG Sequence */}
+        <button
+          type="button"
+          onClick={handleSleepingTap}
+          title="Tap Puff 3 times to wake him up!"
+          className={`relative bg-transparent border-0 outline-none focus:outline-none cursor-pointer group p-0 transition-transform ${
+            phase === 'sleeping' && tapCount === 1
+              ? 'rotate-6 scale-105'
+              : phase === 'sleeping' && tapCount === 2
+              ? '-rotate-12 scale-110 animate-wiggle'
+              : 'hover:scale-105'
+          }`}
+        >
+          <img
+            src={activeFrameSrc}
+            onError={(e) => {
+              e.currentTarget.src = blinkLogo;
+            }}
+            alt="Sleeping Mascot"
+            className={`w-28 h-28 sm:w-36 sm:h-36 object-contain drop-shadow-[0_10px_16px_rgba(15,23,42,0.28)] ${
+              phase === 'sleeping' ? 'animate-pulse-glow' : ''
+            }`}
+          />
+        </button>
+
+        {/* Tap Progress Pill */}
+        <div className="mt-1 px-3 py-1 rounded-full bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-extrabold shadow-lg flex items-center gap-1.5">
+          {phase === 'waking' ? (
+            <span className="text-amber-300 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 animate-spin" />
+              *Grumble-Squeak!* Waking Up!
+            </span>
+          ) : tapCount === 0 ? (
+            <span>💤 Puff is napping • Tap 3x to wake!</span>
+          ) : tapCount === 1 ? (
+            <span className="text-amber-300">*Grrr... mrrow?* (Tap 1/3)</span>
+          ) : (
+            <span className="text-rose-400">*Rumble-squeak!* 1 more tap! (2/3)</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ================= RENDER 2: AWAKE, FLOATING, BORDERLESS SALES MASCOT =================
+  return (
+    <div
+      className={`fixed top-24 right-4 sm:right-7 z-40 select-none flex flex-col items-end transition-all duration-300 ${
+        phase === 'poofing' ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
+      }`}
+    >
+      {/* Poof Cloud Particles when Disappearing */}
+      {phase === 'poofing' && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-28 h-28 rounded-full bg-white/80 animate-ping" />
+        </div>
+      )}
+
+      {/* Intelligent Speech Bubble */}
+      <div className="mb-2 p-3.5 rounded-3xl bg-white/95 backdrop-blur-md text-slate-900 text-xs font-bold shadow-[0_12px_30px_rgba(15,23,42,0.22)] border-2 border-slate-900 max-w-[250px] sm:max-w-[270px] relative animate-float">
+        {phase === 'goodbye' ? (
+          <p className="text-rose-600 font-extrabold leading-snug">
+            👋 Goodbye for now! I’ll be napping at the bottom of the screen if you need me!
+          </p>
+        ) : (
+          <>
+            <p className="leading-snug text-slate-800">{pitch.text}</p>
+            <div className="mt-2.5 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handlePromptAction}
+                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FF595E] hover:bg-[#e0484d] text-white text-[11px] font-extrabold shadow transition-transform hover:scale-105"
+              >
+                {copiedCode ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    Copied COZY15!
+                  </>
+                ) : pitch.ctaType === 'open-customizer' ? (
+                  <>
+                    <Wand2 className="w-3 h-3" />
+                    {pitch.ctaLabel}
+                  </>
+                ) : (
+                  <>
+                    <Tag className="w-3 h-3" />
+                    {pitch.ctaLabel}
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  soundFX.playDisappearPopMp3();
+                  setPhase('poofing');
+                  setTimeout(() => {
+                    setTapCount(0);
+                    setFrameIndex(0);
+                    setPhase('sleeping');
+                  }, 350);
+                }}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-700 underline"
+              >
+                Nap now
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Speech Bubble Tail pointing to Puff */}
+        <div className="w-3.5 h-3.5 bg-white border-r-2 border-b-2 border-slate-900 rotate-45 absolute -bottom-2 right-10" />
+      </div>
+
+      {/* Borderless Floating Animated Mascot */}
+      <button
+        type="button"
+        onClick={() => {
+          soundFX.playMascotSqueak();
+          setIsBlinking(true);
+          setTimeout(() => setIsBlinking(false), 240);
+          startTwentySecondTimer();
+        }}
+        title="Click me for a squeak!"
+        className="bg-transparent border-0 outline-none focus:outline-none cursor-pointer p-0 group animate-float-delayed"
+      >
+        <img
+          src={isBlinking ? blinkLogo : openLogo}
+          onError={(e) => {
+            e.currentTarget.src = '/logo-full-color.svg';
+          }}
+          alt="Puff the Floating Pillow Stuffing Mascot"
+          className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_12px_18px_rgba(15,23,42,0.28)] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200"
+        />
+      </button>
+    </div>
+  );
+}

@@ -28,7 +28,12 @@ export default function ProductCard({
   };
 
   return (
-    <div className="bg-white text-slate-900 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] overflow-hidden flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1">
+    <div
+      data-product-title={product.name}
+      data-product-price={Number(product.price).toFixed(2)}
+      data-product-custom={Boolean(product.customizable)}
+      className="bg-white text-slate-900 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] overflow-hidden flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1"
+    >
       {/* Clickable Product Image -> Opens Frameless Lightbox */}
       <div
         onClick={() => {
@@ -51,7 +56,6 @@ export default function ProductCard({
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
         />
 
-        {/* Top-Left Badge */}
         {product.badge && (
           <span
             style={{ backgroundColor: categoryColor || '#FF595E' }}
@@ -61,18 +65,16 @@ export default function ProductCard({
           </span>
         )}
 
-        {/* Subtle Expand Photo Cue on Hover */}
         <span className="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-900/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
           <Maximize2 className="w-4 h-4" />
         </span>
 
-        {/* Price Pill */}
         <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-slate-900/90 backdrop-blur-sm text-amber-300 font-display text-base font-bold shadow-md">
           ${Number(product.price).toFixed(2)}
         </span>
       </div>
 
-      {/* Compact Title & Small Round Buttons (No Description Clutter) */}
+      {/* Compact Title & Small Round Buttons */}
       <div className="p-4 flex flex-col gap-3">
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 truncate">
@@ -86,7 +88,6 @@ export default function ProductCard({
           </h3>
         </div>
 
-        {/* Small Round Pill Buttons */}
         <div className="flex items-center justify-between gap-2 pt-1">
           <button
             type="button"

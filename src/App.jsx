@@ -12,12 +12,13 @@ import CartDrawer from './components/checkout/CartDrawer';
 import CheckoutModal from './components/checkout/CheckoutModal';
 import WeatherOverlay from './components/interactive/WeatherOverlay';
 import FlashlightGameModal from './components/interactive/FlashlightGameModal';
+import SmartFloatingMascot from './components/interactive/SmartFloatingMascot';
 import Footer from './components/layout/Footer';
 import AdminPinModal from './components/admin/AdminPinModal';
 import AdminDashboard from './components/admin/AdminDashboard';
 
 export default function App() {
-  const { products, cms, addCustomProof, addOrder } = useStore();
+  const { products, cms, addCustomProof } = useStore();
 
   const [cart, setCart] = useState([]);
   const [currentPage, setCurrentPage] = useState('home');
@@ -65,7 +66,6 @@ export default function App() {
     });
   };
 
-  // Clicking Buy adds the item AND immediately opens the frameless shopping cart window
   const handleBuyAsShown = (product) => {
     handleAddToCart({
       id: `${product.id}-${Date.now()}`,
@@ -165,7 +165,6 @@ export default function App() {
         <main className="flex-1">
           <CategoryBubbles onSelectCategory={handleSelectCategoryButton} />
 
-          {/* 1. Winter Collection Section (8 Items) */}
           <FeaturedGridSection
             id="winter-collection"
             theme="winter"
@@ -187,7 +186,6 @@ export default function App() {
             onOpenCustomizer={() => handleNavigateHomeSection('customizer-section')}
           />
 
-          {/* 2. Most Popular Section (8 Items) */}
           <FeaturedGridSection
             id="most-popular"
             theme="popular"
@@ -208,7 +206,6 @@ export default function App() {
             onInspectProduct={(product) => setInspectedProduct(product)}
           />
 
-          {/* 3. Embedded Interactive Pillow & Blanket Customizer at the Bottom of Home Page */}
           <InlineCustomizerSection
             onAddToCart={(item) => {
               handleAddToCart(item);
@@ -259,7 +256,14 @@ export default function App() {
         />
       )}
 
-      {/* Frameless Full-Photo Merchandise Lightbox */}
+      {/* Intelligent Borderless Floating Mascot + 20s Nap Timer + 49-Frame Wakeup */}
+      <SmartFloatingMascot
+        currentPage={currentPage}
+        onOpenCustomizer={() =>
+          setCustomizerState({ isOpen: true, product: products[0], defaultType: 'pillow' })
+        }
+      />
+
       <ProductLightboxModal
         product={inspectedProduct}
         onClose={() => setInspectedProduct(null)}
@@ -273,12 +277,10 @@ export default function App() {
         }
       />
 
-      {/* Floating Bottom Flashlight Icon & Hidden Room Game */}
       <FlashlightGameModal
         onOpenCustomizer={() => handleNavigateHomeSection('customizer-section')}
       />
 
-      {/* Footer with Vibe FX, Sound Mute & Stealth Admin Lock */}
       <Footer
         onTriggerAdminPin={() => setIsPinModalOpen(true)}
         activeWeather={activeWeather}
@@ -305,7 +307,6 @@ export default function App() {
         }}
       />
 
-      {/* Frameless Floating Shopping Cart Window */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
