@@ -14,6 +14,7 @@ import {
 } from '../data/initialAdminData';
 import {
   isFirebaseConfigured,
+  fetchInitialCloudStore,
   subscribeToCloudStore,
   saveToCloudStore,
 } from '../services/firebaseClient';
@@ -22,29 +23,28 @@ const StoreContext = createContext(null);
 
 const STORAGE_KEY = 'oddly_cozy_store_v2';
 
-// Default curated IDs for the 8-item Winter Collection and 8-item Most Popular section
 const DEFAULT_WINTER_IDS = new Set([
-  'ocb-2',           // Fat Knit Cloud Blanket
-  'ms-cookies',      // Cookies & Cream Matching Set
-  'ms-strawberry',   // Strawberry Matching Set
-  'pp-choco-cookies',// Warm Chocolate Chip Cookie Pillow
+  'ocb-2',
+  'ms-cookies',
+  'ms-strawberry',
+  'pp-choco-cookies',
   'pp-4',
-  'ocp-3',           // Giant Croissant Body Pillow
-  'ocp-4',           // Boba Tea Plush Pillow
-  'pb-4',            // Reese's Puffs / Sweet Crunch Blanket
-  'pb-gummy-bears',  // Gummy Bears Blanket
-  'ocb-4',           // Belgian Waffle Blanket
+  'ocp-3',
+  'ocp-4',
+  'pb-4',
+  'pb-gummy-bears',
+  'ocb-4',
 ]);
 
 const DEFAULT_POPULAR_IDS = new Set([
-  'pp-french-fries', // French Fries Pillow
-  'ocp-1',           // Cheeseburger Plush
-  'ocp-2',           // Jumbo Sushi Plush
-  'pb-diet-cola',    // Fizzy Diet Cola Blanket
-  'ocb-1',           // Fried Egg Blanket
-  'ms-donut',        // Pink Frosted Donut Set
-  'ms-pizza',        // Supreme Pizza Set
-  'rug-pizza',       // Pepperoni Pizza Rug
+  'pp-french-fries',
+  'ocp-1',
+  'ocp-2',
+  'pb-diet-cola',
+  'ocb-1',
+  'ms-donut',
+  'ms-pizza',
+  'rug-pizza',
 ]);
 
 function enrichDefaultProducts(products) {
@@ -52,7 +52,6 @@ function enrichDefaultProducts(products) {
   let popularCount = 0;
 
   return products.map((p, idx) => {
-    // Sync button fields if loaded from older cache
     let isWinter = p.isWinter;
     if (isWinter === undefined) {
       isWinter = DEFAULT_WINTER_IDS.has(p.id) || (idx % 3 === 0 && winterCount < 8);
@@ -68,9 +67,9 @@ function enrichDefaultProducts(products) {
     return {
       ...p,
       inStock: p.inStock !== undefined ? p.inStock : true,
-      isWinter,
-      isPopular,
-      unitCost: p.unitCost !== undefined ? p.unitCost : Number((p.price * 0.42).toFixed(2)),
+      isWinter: Boolean(isWinter),
+      isPopular: Boolean(isPopular),
+      unitCost: p.unitCost !== undefined ? Number(p.unitCost) : Number((p.price * 0.42).toFixed(2)),
       fulfillmentRoute:
         p.fulfillmentRoute ||
         (p.customizable || p.categoryId === 'rugs' || p.categoryId === 'matching-sets'
@@ -84,7 +83,16 @@ function mergeCategoriesWithButtons(savedCategories) {
   if (!savedCategories?.length) return DEFAULT_CATEGORIES;
   return DEFAULT_CATEGORIES.map((defCat) => {
     const found = savedCategories.find((c) => c.id === defCat.id);
-    return found ? { ...defCat, ...found, buttonBaseName: defCat.buttonBaseName, buttonPng: defCat.buttonPng, buttonFallback: defCat.buttonFallback, onHomePage: defCat.onHomePage } : defCat;
+    return found
+      ? {
+          ...defCat,
+          ...found,
+          buttonBaseName: defCat.buttonBaseName,
+          buttonPng: defCat.buttonPng,
+          buttonFallback: defCat.buttonFallback,
+          onHomePage: defCat.onHomePage,
+        }
+      : defCat;
   });
 }
 
@@ -99,43 +107,71 @@ export function StoreProvider({ children }) {
   const [customProofs, setCustomProofs] = useState(INITIAL_CUSTOM_PROOFS);
   const [promoCodes, setPromoCodes] = useState(INITIAL_PROMO_CODES);
 
+  // Live diagnostic state for the Admin Dashboard
+  const [syncStatus, setSyncStatus] = useState(
+    isFirebaseConfigured ? 'Connecting to Firebase...' : 'Local Mode (Missing API Key)'
+  );
+  const [syncError, setSyncError] = useState(null);
+
+  const applyStoreData = (data) => {
+    if (!data) return;
+    if (data.cms) setCms((prev) => ({ ...prev, ...data.cms }));
+    if (data.categories?.length) setCategories(mergeCategoriesWithButtons(data.categories));
+    if (data.products?.length) setProducts(enrichDefaultProducts(data.products));
+    if (data.prints?.length) setPrints(data.prints);
+    if (data.pillowSizes?.length) setPillowSizes(data.pillowSizes);
+    if (data.blanketSizes?.length) setBlanketSizes(data.blanketSizes);
+    if (data.orders) setOrders(data.orders);
+    if (data.customProofs) setCustomProofs(data.customProofs);
+    if (data.promoCodes) setPromoCodes(data.promoCodes);
+  };
+
+  // 1. Load from localStorage first for instant paint, then hydrate from Firebase Cloud
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.cms) setCms((prev) => ({ ...prev, ...parsed.cms }));
-        if (parsed.categories?.length) setCategories(mergeCategoriesWithButtons(parsed.categories));
-        if (parsed.products?.length) setProducts(enrichDefaultProducts(parsed.products));
-        if (parsed.prints?.length) setPrints(parsed.prints);
-        if (parsed.pillowSizes?.length) setPillowSizes(parsed.pillowSizes);
-        if (parsed.blanketSizes?.length) setBlanketSizes(parsed.blanketSizes);
-        if (parsed.orders) setOrders(parsed.orders);
-        if (parsed.customProofs) setCustomProofs(parsed.customProofs);
-        if (parsed.promoCodes) setPromoCodes(parsed.promoCodes);
+        applyStoreData(JSON.parse(saved));
       }
     } catch (e) {
-      console.error('Failed to load local store state:', e);
+      console.warn('LocalStorage read error:', e);
     }
-  }, []);
 
-  useEffect(() => {
     if (!isFirebaseConfigured) return;
-    const unsub = subscribeToCloudStore('mainStore', (data) => {
-      if (data.cms) setCms((prev) => ({ ...prev, ...data.cms }));
-      if (data.categories) setCategories(mergeCategoriesWithButtons(data.categories));
-      if (data.products) setProducts(enrichDefaultProducts(data.products));
-      if (data.prints) setPrints(data.prints);
-      if (data.pillowSizes) setPillowSizes(data.pillowSizes);
-      if (data.blanketSizes) setBlanketSizes(data.blanketSizes);
-      if (data.orders) setOrders(data.orders);
-      if (data.customProofs) setCustomProofs(data.customProofs);
-      if (data.promoCodes) setPromoCodes(data.promoCodes);
-    });
+
+    fetchInitialCloudStore('mainStore')
+      .then((cloudData) => {
+        if (cloudData) {
+          applyStoreData(cloudData);
+          setSyncStatus('Synced with Firebase Cloud ✅');
+          setSyncError(null);
+        } else {
+          setSyncStatus('Connected (Ready for first save)');
+        }
+      })
+      .catch((err) => {
+        setSyncStatus('Firestore Permission/Connection Error ❌');
+        setSyncError(err.code || err.message);
+      });
+
+    const unsub = subscribeToCloudStore(
+      'mainStore',
+      (cloudData) => {
+        applyStoreData(cloudData);
+        setSyncStatus('Synced with Firebase Cloud ✅');
+        setSyncError(null);
+      },
+      (err) => {
+        setSyncStatus('Firestore Blocked ❌');
+        setSyncError(err.code || err.message);
+      }
+    );
+
     return () => unsub();
   }, []);
 
-  const persistState = (nextState) => {
+  // 2. Save to both localStorage and Cloud Firestore
+  const persistState = async (nextPartialState) => {
     const fullPayload = {
       cms,
       categories,
@@ -146,15 +182,25 @@ export function StoreProvider({ children }) {
       orders,
       customProofs,
       promoCodes,
-      ...nextState,
+      ...nextPartialState,
     };
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(fullPayload));
     } catch (e) {
-      console.warn('LocalStorage quota warning:', e);
+      console.warn('LocalStorage quota full (using Cloud Firestore instead):', e);
     }
+
     if (isFirebaseConfigured) {
-      saveToCloudStore('mainStore', fullPayload);
+      setSyncStatus('Saving to Firebase Cloud...');
+      const res = await saveToCloudStore('mainStore', fullPayload);
+      if (res.ok) {
+        setSyncStatus('Saved to Firebase Cloud ✅');
+        setSyncError(null);
+      } else {
+        setSyncStatus('Cloud Save Failed ❌');
+        setSyncError(res.reason);
+      }
     }
   };
 
@@ -229,8 +275,21 @@ export function StoreProvider({ children }) {
     persistState({ promoCodes: nextCodes });
   };
 
-  const resetToFactoryDefaults = () => {
+  const resetToFactoryDefaults = async () => {
     localStorage.removeItem(STORAGE_KEY);
+    if (isFirebaseConfigured) {
+      await saveToCloudStore('mainStore', {
+        cms: INITIAL_CMS_SETTINGS,
+        categories: DEFAULT_CATEGORIES,
+        products: enrichDefaultProducts(DEFAULT_PRODUCTS),
+        prints: DEFAULT_PRINTS,
+        pillowSizes: DEFAULT_PILLOW_SIZES,
+        blanketSizes: DEFAULT_BLANKET_SIZES,
+        orders: INITIAL_ORDERS,
+        customProofs: INITIAL_CUSTOM_PROOFS,
+        promoCodes: INITIAL_PROMO_CODES,
+      });
+    }
     window.location.reload();
   };
 
@@ -259,6 +318,8 @@ export function StoreProvider({ children }) {
         savePromoCodes,
         resetToFactoryDefaults,
         isFirebaseConfigured,
+        syncStatus,
+        syncError,
       }}
     >
       {children}

@@ -7,6 +7,8 @@ import {
   CloudSnow,
   Bird,
   Ban,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { resolveLogoVariant } from '../../utils/publicManifest';
@@ -26,6 +28,8 @@ export default function Footer({
   activeWeather,
   setActiveWeather,
   onSelectCategory,
+  isMuted,
+  onToggleMute,
 }) {
   const { categories } = useStore();
   const [isBlinking, setIsBlinking] = useState(false);
@@ -59,14 +63,14 @@ export default function Footer({
   return (
     <footer className="bg-[#FFF8EC] border-t-4 border-slate-900 py-12 text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-8">
-        {/* Vibe FX Atmosphere Controls Bar in Footer */}
+        {/* Vibe FX & Sound Controls Bar in Footer */}
         <div className="p-4 rounded-3xl bg-white border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] flex flex-wrap items-center justify-between gap-4">
           <div>
             <span className="font-display text-lg font-bold text-slate-900 block">
-              Page Vibe & Weather FX
+              Page Vibe, Weather FX & Sound
             </span>
             <span className="text-xs text-slate-500 font-semibold">
-              Add a little winter snow, confetti, or sunshine while you browse!
+              Add a little winter snow, confetti, or toggle mascot sound effects!
             </span>
           </div>
 
@@ -93,6 +97,24 @@ export default function Footer({
                 </button>
               );
             })}
+
+            <button
+              type="button"
+              onClick={onToggleMute}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-extrabold bg-amber-100 hover:bg-amber-200 text-slate-900 border-2 border-slate-900"
+            >
+              {isMuted ? (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Sound Muted</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Sound On</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 

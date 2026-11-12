@@ -9,6 +9,7 @@ import {
   LogOut,
   Cloud,
   HardDrive,
+  AlertTriangle,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { resolveLogoVariant } from '../../utils/publicManifest';
@@ -29,8 +30,15 @@ const ADMIN_TABS = [
 ];
 
 export default function AdminDashboard({ onExitAdmin }) {
-  const [activeTab, setActiveTab] = useState('overview');
-  const { orders, customProofs, products, isFirebaseConfigured } = useStore();
+  const [activeTab, setActiveTab] = useState('inventory');
+  const {
+    orders,
+    customProofs,
+    products,
+    isFirebaseConfigured,
+    syncStatus,
+    syncError,
+  } = useStore();
 
   const whiteLogo = resolveLogoVariant({ theme: 'white', blink: false, withUrl: false });
   const pendingOrdersCount = orders.filter((o) => o.orderStatus !== 'Shipped').length;
@@ -38,7 +46,6 @@ export default function AdminDashboard({ onExitAdmin }) {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col lg:flex-row">
-      {/* Operator Sidebar */}
       <aside className="w-full lg:w-72 bg-[#1E1E24] text-white border-b-4 lg:border-b-0 lg:border-r-4 border-slate-900 p-5 flex flex-col justify-between shrink-0">
         <div>
           <div className="flex items-center justify-between lg:justify-start gap-3 pb-5 border-b border-slate-800">
@@ -70,36 +77,42 @@ export default function AdminDashboard({ onExitAdmin }) {
             </button>
           </div>
 
-          {/* Database Connection Status Badge */}
-          <div className="my-4 p-3 rounded-2xl bg-slate-800/90 border border-slate-700 flex items-center gap-2.5 text-xs">
-            {isFirebaseConfigured ? (
-              <>
+          {/* Live Database Diagnostic Badge */}
+          <div className="my-4 p-3 rounded-2xl bg-slate-800/90 border border-slate-700 space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              {isFirebaseConfigured && !syncError ? (
                 <Cloud className="w-4 h-4 text-emerald-400 shrink-0" />
-                <div>
-                  <span className="font-extrabold text-emerald-400 block">
-                    Firebase Cloud Active
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    Real-time Firestore & Storage synced
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
+              ) : syncError ? (
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              ) : (
                 <HardDrive className="w-4 h-4 text-amber-400 shrink-0" />
-                <div>
-                  <span className="font-extrabold text-amber-300 block">
-                    Local Browser Storage Active
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    Add VITE_FIREBASE_* keys in Vercel to sync cloud
-                  </span>
-                </div>
-              </>
+              )}
+              <span
+                className={`font-extrabold ${
+                  isFirebaseConfigured && !syncError
+                    ? 'text-emerald-400'
+                    : syncError
+                    ? 'text-rose-400'
+                    : 'text-amber-300'
+                }`}
+              >
+                {syncStatus}
+              </span>
+            </div>
+
+            {syncError && (
+              <p className="text-[11px] text-rose-300 font-semibold leading-snug">
+                Error: {syncError}. Check Firestore Database Rules in Firebase Console!
+              </p>
+            )}
+
+            {!isFirebaseConfigured && (
+              <p className="text-[10px] text-slate-400 leading-snug">
+                Add VITE_FIREBASE_API_KEY in Vercel Settings & Redeploy to sync across devices.
+              </p>
             )}
           </div>
 
-          {/* Navigation Links */}
           <nav className="space-y-2">
             {ADMIN_TABS.map((tab) => {
               const Icon = tab.icon;
@@ -144,7 +157,6 @@ export default function AdminDashboard({ onExitAdmin }) {
           </nav>
         </div>
 
-        {/* Exit Back to Live Storefront */}
         <button
           type="button"
           onClick={onExitAdmin}
@@ -155,7 +167,6 @@ export default function AdminDashboard({ onExitAdmin }) {
         </button>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto max-h-screen">
         {activeTab === 'overview' && <OverviewTab onNavigateTab={setActiveTab} />}
         {activeTab === 'orders' && <OrdersManagerTab />}
