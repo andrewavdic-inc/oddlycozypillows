@@ -21,6 +21,15 @@ export const INITIAL_CMS_SETTINGS = {
 export const INITIAL_PROMO_CODES = [
   { id: 'promo-1', code: 'COZY15', discountType: 'percent', value: 15, active: true },
   { id: 'promo-2', code: 'FRIES5', discountType: 'fixed', value: 5, active: true },
+  { id: 'promo-3', code: 'SKYDASH20', discountType: 'percent', value: 20, active: true },
+];
+
+export const INITIAL_HIGH_SCORES = [
+  { id: 'hs-1', name: 'PUFF_PRO', score: 1240, survivalSec: 82, date: '2026-11-13' },
+  { id: 'hs-2', name: 'COZY_KING', score: 890, survivalSec: 61, date: '2026-11-13' },
+  { id: 'hs-3', name: 'FRIES_FAN', score: 640, survivalSec: 45, date: '2026-11-13' },
+  { id: 'hs-4', name: 'NAP_CHAMP', score: 420, survivalSec: 31, date: '2026-11-13' },
+  { id: 'hs-5', name: 'CLOUD_9', score: 260, survivalSec: 19, date: '2026-11-13' },
 ];
 
 export const INITIAL_ORDERS = [

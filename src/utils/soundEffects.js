@@ -1,9 +1,8 @@
-// Sound controller supporting public/sounds/pop.mp3 + Web Audio gremlin/kitten grumbles & squeaks
 class SoundController {
   constructor() {
     this.ctx = null;
     this.muted = false;
-    this.popAudio = null;
+    this.bgmAudio = null;
   }
 
   init() {
@@ -18,26 +17,103 @@ class SoundController {
 
   toggleMute() {
     this.muted = !this.muted;
+    if (this.bgmAudio) {
+      this.bgmAudio.muted = this.muted;
+    }
     if (!this.muted) this.playPop();
     return this.muted;
   }
 
-  // Plays /sounds/pop.mp3 (or /pop.mp3) when the mascot disappears
-  playDisappearPopMp3() {
-    if (this.muted) return;
-    if (typeof window !== 'undefined') {
-      const audio = new Audio('/sounds/pop.mp3');
-      audio.volume = 0.75;
+  /**
+   * Plays an MP3 from /sounds/ with automatic case-sensitivity fallback for Vercel Linux servers
+   */
+  playSoundFile(candidates = [], volume = 0.75, fallbackFn = null) {
+    if (this.muted || typeof window === 'undefined') return;
+
+    const tryPlay = (index) => {
+      if (index >= candidates.length) {
+        if (fallbackFn) fallbackFn();
+        return;
+      }
+      const audio = new Audio(candidates[index]);
+      audio.volume = volume;
       audio.play().catch(() => {
-        // Fallback if placed directly in /pop.mp3 or blocked by autoplay
-        const fallbackAudio = new Audio('/pop.mp3');
-        fallbackAudio.volume = 0.75;
-        fallbackAudio.play().catch(() => this.playPop());
+        tryPlay(index + 1);
       });
+    };
+
+    tryPlay(0);
+  }
+
+  // Starts looping bm.mp3 / Bm.mp3 background music for Puff's Cloud Dash
+  startGameMusic() {
+    if (typeof window === 'undefined') return;
+    this.stopGameMusic();
+
+    const candidates = ['/sounds/bm.mp3', '/sounds/Bm.mp3', '/bm.mp3', '/Bm.mp3'];
+    let idx = 0;
+
+    const tryNextTrack = () => {
+      if (idx >= candidates.length) return;
+      const audio = new Audio(candidates[idx]);
+      audio.loop = true;
+      audio.volume = 0.42;
+      audio.muted = this.muted;
+      this.bgmAudio = audio;
+
+      audio.play().catch(() => {
+        idx += 1;
+        tryNextTrack();
+      });
+    };
+
+    tryNextTrack();
+  }
+
+  stopGameMusic() {
+    if (this.bgmAudio) {
+      this.bgmAudio.pause();
+      this.bgmAudio.currentTime = 0;
+      this.bgmAudio = null;
     }
   }
 
-  // Cute high-pitched kitten/gremlin squeak
+  // Plays bonk.mp3 / Bonk.mp3 when Puff hits a storm cloud or alarm clock
+  playBonkSound() {
+    this.playSoundFile(
+      ['/sounds/bonk.mp3', '/sounds/Bonk.mp3', '/bonk.mp3', '/Bonk.mp3'],
+      0.85,
+      () => this.playBoing()
+    );
+  }
+
+  // Plays powerup.mp3 when Puff catches a cozy pillow/snack to restore health
+  playHealthPowerupSound() {
+    this.playSoundFile(
+      ['/sounds/powerup.mp3', '/sounds/Powerup.mp3', '/powerup.mp3'],
+      0.8,
+      () => this.playSparkleChime()
+    );
+  }
+
+  // Plays moonbeam.mp3 / Moonbeam.mp3 when Puff catches a Moonbeam Starlight Shield
+  playMoonbeamSound() {
+    this.playSoundFile(
+      ['/sounds/moonbeam.mp3', '/sounds/Moonbeam.mp3', '/moonbeam.mp3', '/Moonbeam.mp3'],
+      0.85,
+      () => this.playSparkleChime()
+    );
+  }
+
+  // Plays pop.mp3 when the mascot disappears into his nap
+  playDisappearPopMp3() {
+    this.playSoundFile(
+      ['/sounds/pop.mp3', '/sounds/Pop.mp3', '/pop.mp3'],
+      0.75,
+      () => this.playPop()
+    );
+  }
+
   playMascotSqueak() {
     if (this.muted) return;
     this.init();
@@ -61,7 +137,6 @@ class SoundController {
     osc.stop(now + 0.21);
   }
 
-  // Sleepy gremlin/kitten grumble & purr-rumble when tapped while sleeping (Tap 1 & Tap 2)
   playGremlinGrumble(intensity = 1) {
     if (this.muted) return;
     this.init();
@@ -73,7 +148,6 @@ class SoundController {
     const lfoGain = this.ctx.createGain();
     const gain = this.ctx.createGain();
 
-    // Low saw/triangle rumble modulated by a 28Hz purr/grumble LFO
     osc.type = 'sawtooth';
     const baseFreq = intensity === 1 ? 115 : 155;
     osc.frequency.setValueAtTime(baseFreq, now);
@@ -101,7 +175,6 @@ class SoundController {
     }
   }
 
-  // Full wake-up shake-off rumble + excited kitten/gremlin squeaks + flight whoosh (Tap 3)
   playWakeupSequenceSound() {
     if (this.muted) return;
     this.playGremlinGrumble(2);

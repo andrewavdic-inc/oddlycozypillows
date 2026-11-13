@@ -23,6 +23,22 @@ export function getThumbnailUrl(originalUrl) {
 }
 
 /**
+ * Resolves Star1.png - Star6.png for Puff's Cloud Dash health meter
+ * Star1 = 5/5 Full Health ... Star6 = 0/5 Empty Star
+ */
+export function getStarHealthImages() {
+  return [1, 2, 3, 4, 5, 6].map((num) => {
+    const target = `star${num}.png`;
+    const found = ALL_FILES.find(
+      (f) =>
+        !f.toLowerCase().startsWith('/thumbs/') &&
+        f.toLowerCase().endsWith(target)
+    );
+    return found || `/Star${num}.png`;
+  });
+}
+
+/**
  * Returns all full-res image URLs inside a specific public subfolder (excluding /thumbs/)
  */
 export function getFolderImages(folderName) {

@@ -12,6 +12,7 @@ import CartDrawer from './components/checkout/CartDrawer';
 import CheckoutModal from './components/checkout/CheckoutModal';
 import WeatherOverlay from './components/interactive/WeatherOverlay';
 import SmartFloatingMascot from './components/interactive/SmartFloatingMascot';
+import PuffSkyGameModal from './components/interactive/PuffSkyGameModal';
 import Footer from './components/layout/Footer';
 import AdminPinModal from './components/admin/AdminPinModal';
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -26,6 +27,7 @@ export default function App() {
   const [inspectedProduct, setInspectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isSkyGameOpen, setIsSkyGameOpen] = useState(false);
   const [customizerState, setCustomizerState] = useState({
     isOpen: false,
     product: null,
@@ -255,12 +257,19 @@ export default function App() {
         />
       )}
 
-      {/* Moveable, Borderless Floating Mascot + Manual Nap + 49-Frame Wakeup */}
+      {/* Moveable Floating Mascot (Tap 10x Quickly to Unlock Puff's Cloud Dash!) */}
       <SmartFloatingMascot
         currentPage={currentPage}
         onOpenCustomizer={() =>
           setCustomizerState({ isOpen: true, product: products[0], defaultType: 'pillow' })
         }
+        onOpenSkyGame={() => setIsSkyGameOpen(true)}
+      />
+
+      {/* Secret 20:9 Endless Flying Game Modal */}
+      <PuffSkyGameModal
+        isOpen={isSkyGameOpen}
+        onClose={() => setIsSkyGameOpen(false)}
       />
 
       <ProductLightboxModal

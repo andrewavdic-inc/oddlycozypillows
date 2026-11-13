@@ -9,6 +9,7 @@ import { PRODUCTS_DATA as DEFAULT_PRODUCTS } from '../data/productsData';
 import {
   INITIAL_CMS_SETTINGS,
   INITIAL_PROMO_CODES,
+  INITIAL_HIGH_SCORES,
   INITIAL_ORDERS,
   INITIAL_CUSTOM_PROOFS,
 } from '../data/initialAdminData';
@@ -106,8 +107,8 @@ export function StoreProvider({ children }) {
   const [orders, setOrders] = useState(INITIAL_ORDERS);
   const [customProofs, setCustomProofs] = useState(INITIAL_CUSTOM_PROOFS);
   const [promoCodes, setPromoCodes] = useState(INITIAL_PROMO_CODES);
+  const [highScores, setHighScores] = useState(INITIAL_HIGH_SCORES);
 
-  // Live diagnostic state for the Admin Dashboard
   const [syncStatus, setSyncStatus] = useState(
     isFirebaseConfigured ? 'Connecting to Firebase...' : 'Local Mode (Missing API Key)'
   );
@@ -124,9 +125,9 @@ export function StoreProvider({ children }) {
     if (data.orders) setOrders(data.orders);
     if (data.customProofs) setCustomProofs(data.customProofs);
     if (data.promoCodes) setPromoCodes(data.promoCodes);
+    if (data.highScores?.length) setHighScores(data.highScores);
   };
 
-  // 1. Load from localStorage first for instant paint, then hydrate from Firebase Cloud
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -170,7 +171,6 @@ export function StoreProvider({ children }) {
     return () => unsub();
   }, []);
 
-  // 2. Save to both localStorage and Cloud Firestore
   const persistState = async (nextPartialState) => {
     const fullPayload = {
       cms,
@@ -182,6 +182,7 @@ export function StoreProvider({ children }) {
       orders,
       customProofs,
       promoCodes,
+      highScores,
       ...nextPartialState,
     };
 
@@ -275,6 +276,25 @@ export function StoreProvider({ children }) {
     persistState({ promoCodes: nextCodes });
   };
 
+  const addHighScore = (newEntry) => {
+    const cleanName = (newEntry.name || 'COZY_PAL')
+      .toUpperCase()
+      .replace(/[^A-Z0-9_ -]/g, '')
+      .slice(0, 12);
+    const entry = {
+      id: `hs-${Date.now()}`,
+      name: cleanName || 'COZY_PAL',
+      score: Math.round(newEntry.score || 0),
+      survivalSec: Math.round(newEntry.survivalSec || 0),
+      date: new Date().toISOString().split('T')[0],
+    };
+    const next = [...highScores, entry]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+    setHighScores(next);
+    persistState({ highScores: next });
+  };
+
   const resetToFactoryDefaults = async () => {
     localStorage.removeItem(STORAGE_KEY);
     if (isFirebaseConfigured) {
@@ -288,6 +308,7 @@ export function StoreProvider({ children }) {
         orders: INITIAL_ORDERS,
         customProofs: INITIAL_CUSTOM_PROOFS,
         promoCodes: INITIAL_PROMO_CODES,
+        highScores: INITIAL_HIGH_SCORES,
       });
     }
     window.location.reload();
@@ -316,6 +337,8 @@ export function StoreProvider({ children }) {
         updateCustomProof,
         promoCodes,
         savePromoCodes,
+        highScores,
+        addHighScore,
         resetToFactoryDefaults,
         isFirebaseConfigured,
         syncStatus,

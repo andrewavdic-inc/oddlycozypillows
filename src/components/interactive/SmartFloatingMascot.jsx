@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { Sparkles, Wand2, Tag, Check, Move, ArrowDown } from 'lucide-react';
+import { Sparkles, Wand2, Tag, Check, Move, ArrowDown, Gamepad2 } from 'lucide-react';
 import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
@@ -10,6 +10,12 @@ const BUTTON_MENU_PITCH = {
   text: '🧭 Navigate with these buttons, or check out our featured items below!',
   ctaLabel: 'Featured Items',
   ctaType: 'scroll-featured',
+};
+
+const ANTSY_GAME_PITCH = {
+  text: "⚡ Someone's a little antsy… do you want to play Puff's Cloud Dash?",
+  ctaLabel: "Play Puff's Cloud Dash!",
+  ctaType: 'open-sky-game',
 };
 
 const SECTION_PITCHES = {
@@ -77,12 +83,17 @@ function getInitialMascotPosition() {
 export default function SmartFloatingMascot({
   currentPage,
   onOpenCustomizer,
+  onOpenSkyGame,
 }) {
   // Lifecycle: 'awake' | 'goodbye' | 'poofing' | 'sleeping' | 'waking'
   const [phase, setPhase] = useState('awake');
   const [isBlinking, setIsBlinking] = useState(false);
   const [pitch, setPitch] = useState(SECTION_PITCHES['winter-collection']);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // 10-Quick-Tap Secret Game Detector
+  const quickTapTimestampsRef = useRef([]);
+  const [antsyMode, setAntsyMode] = useState(false);
 
   // Draggable Position State
   const [position, setPosition] = useState(getInitialMascotPosition);
@@ -104,7 +115,6 @@ export default function SmartFloatingMascot({
   const openLogo = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
   const blinkLogo = resolveLogoVariant({ theme: 'color', blink: true, withUrl: false });
 
-  // Only preload the Wakeup animation frames AFTER the user sends Puff to sleep
   useEffect(() => {
     if (phase !== 'sleeping') return;
     WAKEUP_FRAMES.forEach((src) => {
@@ -114,7 +124,6 @@ export default function SmartFloatingMascot({
     });
   }, [phase]);
 
-  // Keep Puff inside the screen if the browser window is resized
   useEffect(() => {
     const handleResize = () => {
       setPosition((prev) => ({
@@ -126,7 +135,6 @@ export default function SmartFloatingMascot({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Natural blinking loop while awake
   useEffect(() => {
     if (phase !== 'awake') return;
     const interval = setInterval(() => {
@@ -136,54 +144,51 @@ export default function SmartFloatingMascot({
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Detects if Puff is physically hovering over the Category Buttons menu or another section
-  const evaluateMascotContext = useCallback((posX, posY) => {
-    if (typeof document === 'undefined') return;
-    const mascotCenterX = posX + 52;
-    const mascotCenterY = posY + 52;
+  const evaluateMascotContext = useCallback(
+    (posX, posY) => {
+      if (typeof document === 'undefined' || antsyMode) return;
+      const mascotCenterX = posX + 52;
+      const mascotCenterY = posY + 52;
 
-    // 1. Check if Puff himself is hovering over the Category Button Menu
-    const menuEl = document.getElementById('category-bubbles-menu');
-    if (menuEl) {
-      const rect = menuEl.getBoundingClientRect();
-      // Add a 25px buffer around the button menu so sitting right on or near it triggers the reaction
-      const isOverButtonMenu =
-        mascotCenterY >= rect.top - 25 &&
-        mascotCenterY <= rect.bottom + 25 &&
-        mascotCenterX >= rect.left - 25 &&
-        mascotCenterX <= rect.right + 25;
+      const menuEl = document.getElementById('category-bubbles-menu');
+      if (menuEl) {
+        const rect = menuEl.getBoundingClientRect();
+        const isOverButtonMenu =
+          mascotCenterY >= rect.top - 25 &&
+          mascotCenterY <= rect.bottom + 25 &&
+          mascotCenterX >= rect.left - 25 &&
+          mascotCenterX <= rect.right + 25;
 
-      if (isOverButtonMenu) {
-        setPitch((prev) =>
-          prev.text !== BUTTON_MENU_PITCH.text ? BUTTON_MENU_PITCH : prev
-        );
-        return;
-      }
-    }
-
-    // 2. Otherwise check which section Puff (or the viewport) is currently aligned with
-    const sectionIds = Object.keys(SECTION_PITCHES);
-    for (const id of sectionIds) {
-      const el = document.getElementById(id);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        if (mascotCenterY >= rect.top && mascotCenterY <= rect.bottom) {
+        if (isOverButtonMenu) {
           setPitch((prev) =>
-            prev.text !== SECTION_PITCHES[id].text ? SECTION_PITCHES[id] : prev
+            prev.text !== BUTTON_MENU_PITCH.text ? BUTTON_MENU_PITCH : prev
           );
           return;
         }
       }
-    }
-  }, []);
 
-  // Re-evaluate whenever Puff is moved/dragged
+      const sectionIds = Object.keys(SECTION_PITCHES);
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (mascotCenterY >= rect.top && mascotCenterY <= rect.bottom) {
+            setPitch((prev) =>
+              prev.text !== SECTION_PITCHES[id].text ? SECTION_PITCHES[id] : prev
+            );
+            return;
+          }
+        }
+      }
+    },
+    [antsyMode]
+  );
+
   useEffect(() => {
     if (phase !== 'awake') return;
     evaluateMascotContext(position.x, position.y);
   }, [position.x, position.y, phase, currentPage, evaluateMascotContext]);
 
-  // Scroll & Hover Intelligence
   useEffect(() => {
     if (phase !== 'awake') return;
 
@@ -192,14 +197,13 @@ export default function SmartFloatingMascot({
     };
 
     const handleMouseOver = (e) => {
-      // React if the user hovers over the category buttons menu
+      if (antsyMode) return;
       const catBtnEl = e.target.closest('[data-category-button]');
       if (catBtnEl) {
         setPitch(BUTTON_MENU_PITCH);
         return;
       }
 
-      // React if the user hovers over a product card
       const cardTitleEl = e.target.closest('[data-product-title]');
       if (cardTitleEl) {
         const title = cardTitleEl.getAttribute('data-product-title');
@@ -223,9 +227,8 @@ export default function SmartFloatingMascot({
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('mouseover', handleMouseOver);
     };
-  }, [phase, currentPage, position.x, position.y, evaluateMascotContext]);
+  }, [phase, currentPage, position.x, position.y, antsyMode, evaluateMascotContext]);
 
-  // Global Pointer Move / Up listeners for smooth Mouse & Touch dragging
   useEffect(() => {
     const handlePointerMove = (e) => {
       if (!dragRef.current.active) return;
@@ -269,16 +272,32 @@ export default function SmartFloatingMascot({
     setIsDragging(true);
   };
 
+  // Detects 10 rapid taps to unlock Puff's Cloud Dash
   const handleMascotClick = () => {
     if (dragRef.current.movedDistance > 8) return;
     soundFX.playMascotSqueak();
     setIsBlinking(true);
     setTimeout(() => setIsBlinking(false), 240);
+
+    const now = Date.now();
+    const recentTaps = [
+      ...quickTapTimestampsRef.current.filter((t) => now - t < 4500),
+      now,
+    ];
+    quickTapTimestampsRef.current = recentTaps;
+
+    if (recentTaps.length >= 10) {
+      quickTapTimestampsRef.current = [];
+      soundFX.playSparkleChime();
+      setAntsyMode(true);
+      setPitch(ANTSY_GAME_PITCH);
+    }
   };
 
   const handleManualNap = (e) => {
     e.stopPropagation();
     if (phase !== 'awake') return;
+    setAntsyMode(false);
     soundFX.playMascotSqueak();
     setPhase('goodbye');
 
@@ -293,10 +312,13 @@ export default function SmartFloatingMascot({
     }, 2000);
   };
 
-  // Handle 1-Click Sales Action inside Speech Bubble
   const handlePromptAction = (e) => {
     e.stopPropagation();
-    if (pitch.ctaType === 'scroll-featured') {
+    if (pitch.ctaType === 'open-sky-game') {
+      soundFX.playSparkleChime();
+      setAntsyMode(false);
+      onOpenSkyGame?.();
+    } else if (pitch.ctaType === 'scroll-featured') {
       soundFX.playPop();
       const targetEl =
         document.getElementById('winter-collection') ||
@@ -313,7 +335,6 @@ export default function SmartFloatingMascot({
     }
   };
 
-  // Handle 3 Taps on Sleeping Mascot at Bottom of Screen
   const handleSleepingTap = () => {
     if (phase !== 'sleeping') return;
     const nextTap = tapCount + 1;
@@ -354,7 +375,6 @@ export default function SmartFloatingMascot({
     }
   };
 
-  // ================= RENDER 1: SLEEPING OR WAKING UP AT BOTTOM OF SCREEN =================
   if (phase === 'sleeping' || phase === 'waking') {
     const activeFrameSrc =
       phase === 'waking'
@@ -433,7 +453,6 @@ export default function SmartFloatingMascot({
     );
   }
 
-  // ================= RENDER 2: AWAKE, DRAGGABLE, BORDERLESS SALES MASCOT =================
   const isNearTop = position.y < 230;
   const isNearLeft = position.x < 260;
 
@@ -459,7 +478,7 @@ export default function SmartFloatingMascot({
           isNearTop ? 'top-full mt-3' : 'bottom-full mb-3'
         } ${
           isNearLeft ? 'left-0' : 'right-0'
-        } w-[245px] sm:w-[265px] p-3.5 rounded-3xl bg-white/95 backdrop-blur-md text-slate-900 text-xs font-bold shadow-[0_12px_30px_rgba(15,23,42,0.22)] border-2 border-slate-900 ${
+        } w-[250px] sm:w-[275px] p-3.5 rounded-3xl bg-white/95 backdrop-blur-md text-slate-900 text-xs font-bold shadow-[0_12px_30px_rgba(15,23,42,0.22)] border-2 border-slate-900 ${
           isDragging ? '' : 'animate-float'
         }`}
       >
@@ -474,12 +493,21 @@ export default function SmartFloatingMascot({
               <button
                 type="button"
                 onClick={handlePromptAction}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#FF595E] hover:bg-[#e0484d] text-white text-[11px] font-extrabold shadow transition-transform hover:scale-105"
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-extrabold shadow transition-transform hover:scale-105 ${
+                  pitch.ctaType === 'open-sky-game'
+                    ? 'bg-[#8AC926] hover:bg-lime-400 text-slate-900 animate-pulse'
+                    : 'bg-[#FF595E] hover:bg-[#e0484d] text-white'
+                }`}
               >
                 {copiedCode ? (
                   <>
                     <Check className="w-3 h-3" />
                     Copied COZY15!
+                  </>
+                ) : pitch.ctaType === 'open-sky-game' ? (
+                  <>
+                    <Gamepad2 className="w-3.5 h-3.5" />
+                    {pitch.ctaLabel}
                   </>
                 ) : pitch.ctaType === 'scroll-featured' ? (
                   <>
@@ -525,9 +553,13 @@ export default function SmartFloatingMascot({
         onClick={handleMascotClick}
         role="button"
         tabIndex={0}
-        title="Drag me anywhere on the screen, or click me to squeak!"
+        title="Drag me around, or tap me 10 times quickly for a secret game!"
         className={`relative touch-none bg-transparent border-0 outline-none select-none group ${
-          isDragging ? 'cursor-grabbing scale-110' : 'cursor-grab animate-float-delayed'
+          isDragging
+            ? 'cursor-grabbing scale-110'
+            : antsyMode
+            ? 'cursor-pointer animate-wiggle'
+            : 'cursor-grab animate-float-delayed'
         }`}
       >
         <img
@@ -542,7 +574,7 @@ export default function SmartFloatingMascot({
 
         <span className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-900/80 text-white text-[9px] font-bold whitespace-nowrap flex items-center gap-1 shadow">
           <Move className="w-2.5 h-2.5 text-amber-300" />
-          Drag me
+          Drag or Tap 10x
         </span>
       </div>
     </div>
