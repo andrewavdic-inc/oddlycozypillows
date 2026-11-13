@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CATEGORIES as DEFAULT_CATEGORIES } from '../config/themeColors';
 import {
   PILLOW_SIZES as DEFAULT_PILLOW_SIZES,
+  CUSTOM_SHAPE_SIZES as DEFAULT_CUSTOM_SHAPE_SIZES,
   BLANKET_SIZES as DEFAULT_BLANKET_SIZES,
   AVAILABLE_PRINTS as DEFAULT_PRINTS,
 } from '../config/printifySpecs';
@@ -13,7 +14,7 @@ import {
   INITIAL_HIGH_SCORES,
   INITIAL_ORDERS,
   INITIAL_CUSTOM_PROOFS,
-} from '../data/initialAdminData.js';
+} from '../data/initialAdminData';
 import {
   isFirebaseConfigured,
   fetchInitialCloudStore,
@@ -25,27 +26,13 @@ const StoreContext = createContext(null);
 const STORAGE_KEY = 'oddly_cozy_store_v2';
 
 const DEFAULT_WINTER_IDS = new Set([
-  'ocb-2',
-  'ms-cookies',
-  'ms-strawberry',
-  'pp-choco-cookies',
-  'pp-4',
-  'ocp-3',
-  'ocp-4',
-  'pb-4',
-  'pb-gummy-bears',
-  'ocb-4',
+  'ocb-2', 'ms-cookies', 'ms-strawberry', 'pp-choco-cookies',
+  'pp-4', 'ocp-3', 'ocp-4', 'pb-4', 'pb-gummy-bears', 'ocb-4',
 ]);
 
 const DEFAULT_POPULAR_IDS = new Set([
-  'pp-french-fries',
-  'ocp-1',
-  'ocp-2',
-  'pb-diet-cola',
-  'ocb-1',
-  'ms-donut',
-  'ms-pizza',
-  'rug-pizza',
+  'pp-french-fries', 'ocp-1', 'ocp-2', 'pb-diet-cola',
+  'ocb-1', 'ms-donut', 'ms-pizza', 'rug-pizza',
 ]);
 
 function enrichDefaultProducts(products) {
@@ -65,16 +52,20 @@ function enrichDefaultProducts(products) {
     }
     if (isPopular) popularCount++;
 
+    const isCustomShape = Boolean(p.isCustomShape || p.productType === 'custom-shape');
+
     return {
       ...p,
+      isCustomShape,
       inStock: p.inStock !== undefined ? p.inStock : true,
       isWinter: Boolean(isWinter),
       isPopular: Boolean(isPopular),
-      unitCost:
-        p.unitCost !== undefined ? Number(p.unitCost) : Number((p.price * 0.42).toFixed(2)),
+      unitCost: p.unitCost !== undefined ? Number(p.unitCost) : Number((p.price * 0.42).toFixed(2)),
       fulfillmentRoute:
         p.fulfillmentRoute ||
-        (p.customizable || p.categoryId === 'rugs' || p.categoryId === 'matching-sets'
+        (isCustomShape
+          ? 'Custom Die-Cut POD'
+          : p.customizable || p.categoryId === 'rugs' || p.categoryId === 'matching-sets'
           ? 'Printify POD'
           : 'Plush/Blanket Supplier'),
     };
@@ -92,22 +83,9 @@ function mergeCategoriesWithButtons(savedCategories) {
           buttonBaseName: found.buttonBaseName || defCat.buttonBaseName,
           buttonPng: found.buttonPng || defCat.buttonPng,
           buttonFallback: found.buttonFallback || defCat.buttonFallback,
-          onHomePage: defCat.onHomePage,
         }
       : defCat;
   });
-}
-
-function mergeCmsWithDefaults(savedCms) {
-  if (!savedCms) return INITIAL_CMS_SETTINGS;
-  return {
-    ...INITIAL_CMS_SETTINGS,
-    ...savedCms,
-    mascotPitches: {
-      ...DEFAULT_MASCOT_PITCHES,
-      ...(savedCms.mascotPitches || {}),
-    },
-  };
 }
 
 export function StoreProvider({ children }) {
@@ -116,6 +94,7 @@ export function StoreProvider({ children }) {
   const [products, setProducts] = useState(() => enrichDefaultProducts(DEFAULT_PRODUCTS));
   const [prints, setPrints] = useState(DEFAULT_PRINTS);
   const [pillowSizes, setPillowSizes] = useState(DEFAULT_PILLOW_SIZES);
+  const [customShapeSizes, setCustomShapeSizes] = useState(DEFAULT_CUSTOM_SHAPE_SIZES);
   const [blanketSizes, setBlanketSizes] = useState(DEFAULT_BLANKET_SIZES);
   const [orders, setOrders] = useState(INITIAL_ORDERS);
   const [customProofs, setCustomProofs] = useState(INITIAL_CUSTOM_PROOFS);
@@ -129,11 +108,22 @@ export function StoreProvider({ children }) {
 
   const applyStoreData = (data) => {
     if (!data) return;
-    if (data.cms) setCms(mergeCmsWithDefaults(data.cms));
+    if (data.cms) {
+      setCms((prev) => ({
+        ...INITIAL_CMS_SETTINGS,
+        ...prev,
+        ...data.cms,
+        mascotPitches: {
+          ...DEFAULT_MASCOT_PITCHES,
+          ...(data.cms.mascotPitches || {}),
+        },
+      }));
+    }
     if (data.categories?.length) setCategories(mergeCategoriesWithButtons(data.categories));
     if (data.products?.length) setProducts(enrichDefaultProducts(data.products));
     if (data.prints?.length) setPrints(data.prints);
     if (data.pillowSizes?.length) setPillowSizes(data.pillowSizes);
+    if (data.customShapeSizes?.length) setCustomShapeSizes(data.customShapeSizes);
     if (data.blanketSizes?.length) setBlanketSizes(data.blanketSizes);
     if (data.orders) setOrders(data.orders);
     if (data.customProofs) setCustomProofs(data.customProofs);
@@ -144,9 +134,7 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        applyStoreData(JSON.parse(saved));
-      }
+      if (saved) applyStoreData(JSON.parse(saved));
     } catch (e) {
       console.warn('LocalStorage read error:', e);
     }
@@ -164,7 +152,7 @@ export function StoreProvider({ children }) {
         }
       })
       .catch((err) => {
-        setSyncStatus('Firestore Permission/Connection Error ❌');
+        setSyncStatus('Firestore Error ❌');
         setSyncError(err.code || err.message);
       });
 
@@ -191,6 +179,7 @@ export function StoreProvider({ children }) {
       products,
       prints,
       pillowSizes,
+      customShapeSizes,
       blanketSizes,
       orders,
       customProofs,
@@ -202,7 +191,7 @@ export function StoreProvider({ children }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(fullPayload));
     } catch (e) {
-      console.warn('LocalStorage quota full (using Cloud Firestore instead):', e);
+      console.warn('LocalStorage quota full (using Cloud Firestore):', e);
     }
 
     if (isFirebaseConfigured) {
@@ -218,12 +207,10 @@ export function StoreProvider({ children }) {
     }
   };
 
-  const forceCloudSync = async () => {
-    await persistState({});
-  };
+  const forceCloudSync = () => persistState({});
 
   const updateCms = (updates) => {
-    const next = mergeCmsWithDefaults({ ...cms, ...updates });
+    const next = { ...cms, ...updates };
     setCms(next);
     persistState({ cms: next });
   };
@@ -243,35 +230,31 @@ export function StoreProvider({ children }) {
     persistState({ products: next });
   };
 
-  const deleteProduct = (productId) => {
-    const next = products.filter((p) => p.id !== productId);
-    setProducts(next);
-    persistState({ products: next });
-  };
+  const reorderFeaturedProduct = (productId, collectionKey, direction) => {
+    const flag = collectionKey === 'winter' ? 'isWinter' : 'isPopular';
+    const featuredIds = products.filter((p) => p[flag]).map((p) => p.id);
+    const currentIndex = featuredIds.indexOf(productId);
+    if (currentIndex === -1) return;
 
-  // Reorders products inside the 8-slot Winter or Most Popular tray
-  const reorderFeaturedProduct = (productId, direction, flagKey) => {
-    const featuredIndices = [];
-    products.forEach((p, idx) => {
-      if (p[flagKey]) featuredIndices.push(idx);
-    });
+    const targetIndex = direction === 'left' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= featuredIds.length) return;
 
-    const posInFeatured = featuredIndices.findIndex(
-      (prodIdx) => products[prodIdx].id === productId
-    );
-    if (posInFeatured === -1) return;
-
-    const targetPos = direction === 'left' ? posInFeatured - 1 : posInFeatured + 1;
-    if (targetPos < 0 || targetPos >= featuredIndices.length) return;
-
-    const idxA = featuredIndices[posInFeatured];
-    const idxB = featuredIndices[targetPos];
+    const idA = featuredIds[currentIndex];
+    const idB = featuredIds[targetIndex];
+    const idxA = products.findIndex((p) => p.id === idA);
+    const idxB = products.findIndex((p) => p.id === idB);
 
     const next = [...products];
     const temp = next[idxA];
     next[idxA] = next[idxB];
     next[idxB] = temp;
 
+    setProducts(next);
+    persistState({ products: next });
+  };
+
+  const deleteProduct = (productId) => {
+    const next = products.filter((p) => p.id !== productId);
     setProducts(next);
     persistState({ products: next });
   };
@@ -309,6 +292,9 @@ export function StoreProvider({ children }) {
     if (type === 'pillow') {
       setPillowSizes(nextSizes);
       persistState({ pillowSizes: nextSizes });
+    } else if (type === 'custom-shape') {
+      setCustomShapeSizes(nextSizes);
+      persistState({ customShapeSizes: nextSizes });
     } else {
       setBlanketSizes(nextSizes);
       persistState({ blanketSizes: nextSizes });
@@ -350,9 +336,9 @@ export function StoreProvider({ children }) {
     persistState({ highScores: INITIAL_HIGH_SCORES });
   };
 
-  const importBackupData = async (parsedData) => {
-    applyStoreData(parsedData);
-    await persistState(parsedData);
+  const importStoreBackup = (backupJson) => {
+    applyStoreData(backupJson);
+    persistState(backupJson);
   };
 
   const resetToFactoryDefaults = async () => {
@@ -364,6 +350,7 @@ export function StoreProvider({ children }) {
         products: enrichDefaultProducts(DEFAULT_PRODUCTS),
         prints: DEFAULT_PRINTS,
         pillowSizes: DEFAULT_PILLOW_SIZES,
+        customShapeSizes: DEFAULT_CUSTOM_SHAPE_SIZES,
         blanketSizes: DEFAULT_BLANKET_SIZES,
         orders: INITIAL_ORDERS,
         customProofs: INITIAL_CUSTOM_PROOFS,
@@ -383,11 +370,12 @@ export function StoreProvider({ children }) {
         updateCategory,
         products,
         saveProduct,
-        deleteProduct,
         reorderFeaturedProduct,
+        deleteProduct,
         prints,
         savePrintsList,
         pillowSizes,
+        customShapeSizes,
         blanketSizes,
         saveSizePricing,
         orders,
@@ -403,7 +391,7 @@ export function StoreProvider({ children }) {
         deleteHighScore,
         resetHighScores,
         forceCloudSync,
-        importBackupData,
+        importStoreBackup,
         resetToFactoryDefaults,
         isFirebaseConfigured,
         syncStatus,

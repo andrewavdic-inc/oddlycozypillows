@@ -210,6 +210,22 @@ export default function SmartFloatingMascot({
         return;
       }
 
+      // Listen for Custom-Shaped Pillow studio tab switches
+  useEffect(() => {
+    const handleCustomPitch = (e) => {
+      if (e.detail?.text) {
+        soundFX.playMascotSqueak();
+        setPitch({
+          text: e.detail.text,
+          ctaLabel: `Copy ${activePromo}`,
+          ctaType: 'copy-code',
+        });
+      }
+    };
+    window.addEventListener('oddlycozy:mascot-pitch', handleCustomPitch);
+    return () => window.removeEventListener('oddlycozy:mascot-pitch', handleCustomPitch);
+  }, [activePromo]);
+  
       const cardTitleEl = e.target.closest('[data-product-title]');
       if (cardTitleEl) {
         const title = cardTitleEl.getAttribute('data-product-title');
