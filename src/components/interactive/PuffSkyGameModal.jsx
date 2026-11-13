@@ -32,6 +32,15 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
   const targetRewardSec = Number(cms?.gameRewardSeconds || 45);
   const rewardPromoCode = cms?.gameRewardCode || 'SKYDASH20';
 
+  // Custom Audio Paths & Volumes from Admin CMS
+  const introMusicUrl = cms?.gameIntroMusic || '';
+  const bgMusicUrl = cms?.gameBgMusic || '/sounds/bm.mp3';
+  const powerupSoundUrl = cms?.gamePowerupSound || '/sounds/powerup.mp3';
+  const bonkSoundUrl = cms?.gameBonkSound || '/sounds/bonk.mp3';
+  const moonbeamSoundUrl = cms?.gameMoonbeamSound || '/sounds/moonbeam.mp3';
+  const musicVol = Number(cms?.gameMusicVolume ?? 0.45);
+  const sfxVol = Number(cms?.gameSfxVolume ?? 0.85);
+
   const [gameState, setGameState] = useState('ready');
   const [showIntroScores, setShowIntroScores] = useState(false);
   const [videoSrc, setVideoSrc] = useState(cms?.gameIntroVideo || INTRO_VIDEO_URL);
@@ -45,6 +54,37 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
   const [playerName, setPlayerName] = useState('');
   const [scoreSaved, setScoreSaved] = useState(false);
   const [copiedReward, setCopiedReward] = useState(false);
+
+  // Keep latest audio config in a ref for the 60FPS loop
+  const audioConfigRef = useRef({
+    introMusicUrl,
+    bgMusicUrl,
+    powerupSoundUrl,
+    bonkSoundUrl,
+    moonbeamSoundUrl,
+    musicVol,
+    sfxVol,
+  });
+
+  useEffect(() => {
+    audioConfigRef.current = {
+      introMusicUrl,
+      bgMusicUrl,
+      powerupSoundUrl,
+      bonkSoundUrl,
+      moonbeamSoundUrl,
+      musicVol,
+      sfxVol,
+    };
+  }, [
+    introMusicUrl,
+    bgMusicUrl,
+    powerupSoundUrl,
+    bonkSoundUrl,
+    moonbeamSoundUrl,
+    musicVol,
+    sfxVol,
+  ]);
 
   useEffect(() => {
     if (cms?.gameIntroVideo) {
@@ -114,16 +154,23 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     });
   }, []);
 
+  // Start Intro Video Music when modal opens in 'ready' state; stop all audio when modal closes
   useEffect(() => {
     if (isOpen) {
       setGameState('ready');
       setShowIntroScores(false);
+      if (introMusicUrl) {
+        soundFX.startIntroMusic(introMusicUrl, musicVol);
+      }
     } else {
-      soundFX.stopGameMusic();
+      soundFX.stopAllGameAudio();
       gameRef.current.running = false;
       if (gameRef.current.rafId) cancelAnimationFrame(gameRef.current.rafId);
     }
-  }, [isOpen]);
+    return () => {
+      soundFX.stopAllGameAudio();
+    };
+  }, [isOpen, introMusicUrl, musicVol]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -141,6 +188,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         gameRef.current.keys.right = true;
       }
       if (e.key === 'Escape') {
+        soundFX.stopAllGameAudio();
         onClose();
       }
     };
@@ -226,7 +274,8 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     setShowIntroScores(false);
     setGameState('playing');
 
-    soundFX.startGameMusic();
+    const { bgMusicUrl: bgm, musicVol: mVol } = audioConfigRef.current;
+    soundFX.startGameMusic(bgm, mVol);
   };
 
   useEffect(() => {
@@ -378,6 +427,13 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
+      const {
+        powerupSoundUrl: pUrl,
+        bonkSoundUrl: bUrl,
+        moonbeamSoundUrl: mUrl,
+        sfxVol: sVol,
+      } = audioConfigRef.current;
+
       for (let i = g.entities.length - 1; i >= 0; i--) {
         const ent = g.entities[i];
         ent.y += ent.vy * dt;
@@ -393,7 +449,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         const dist = Math.hypot(ent.x - g.puff.x, ent.y - g.puff.y);
         if (dist < ent.radius + g.puff.radius - 6) {
           if (ent.type === 'heal') {
-            soundFX.playHealthPowerupSound();
+            soundFX.playHealthPowerupSound(pUrl, sVol);
             const nextHp = Math.min(5, g.health + 1);
             const healed = nextHp > g.health;
             g.health = nextHp;
@@ -411,7 +467,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           }
 
           if (ent.type === 'moonbeam') {
-            soundFX.playMoonbeamSound();
+            soundFX.playMoonbeamSound(mUrl, sVol);
             g.puff.moonbeamTimer = 6.5;
             setMoonbeamActive(true);
             g.score += 100;
@@ -430,7 +486,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               g.entities.splice(i, 1);
               continue;
             } else if (g.puff.invulnTimer <= 0) {
-              soundFX.playBonkSound();
+              soundFX.playBonkSound(bUrl, sVol);
               g.health = Math.max(0, g.health - 1);
               setHealth(g.health);
               g.puff.invulnTimer = 1.25;
@@ -704,7 +760,10 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
 
   return (
     <div
-      onClick={onClose}
+      onClick={() => {
+        soundFX.stopAllGameAudio();
+        onClose();
+      }}
       className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-lg flex items-center justify-center p-2 sm:p-4 select-none"
     >
       <div
@@ -783,7 +842,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={() => {
-                  soundFX.stopGameMusic();
+                  soundFX.stopAllGameAudio();
                   onClose();
                 }}
                 className="w-8 h-8 rounded-full bg-rose-500/90 hover:bg-rose-600 text-white flex items-center justify-center transition-colors"
@@ -803,6 +862,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           </div>
         )}
 
+        {/* ================= OVERLAY 1: LOOPING INTRO VIDEO + INTRO MUSIC ================= */}
         {gameState === 'ready' && (
           <div
             onClick={startNewGame}
@@ -856,7 +916,26 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 <button
                   type="button"
                   onClick={() => {
-                    soundFX.stopGameMusic();
+                    const nextMuted = soundFX.toggleMute();
+                    setIsMuted(nextMuted);
+                    if (!nextMuted && introMusicUrl && !soundFX.introAudio) {
+                      soundFX.startIntroMusic(introMusicUrl, musicVol);
+                    }
+                  }}
+                  className="w-8 h-8 rounded-full bg-slate-950/65 hover:bg-slate-800 text-white backdrop-blur-md flex items-center justify-center transition-colors shadow-lg"
+                  title="Mute / Unmute Intro Music"
+                >
+                  {isMuted ? (
+                    <VolumeX className="w-4 h-4 text-rose-400" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-emerald-400" />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFX.stopAllGameAudio();
                     onClose();
                   }}
                   className="w-8 h-8 rounded-full bg-slate-950/65 hover:bg-rose-500 text-white backdrop-blur-md flex items-center justify-center transition-colors shadow-lg"
@@ -995,7 +1074,10 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 </button>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => {
+                    soundFX.stopAllGameAudio();
+                    onClose();
+                  }}
                   className="py-2.5 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs"
                 >
                   Exit

@@ -23,17 +23,33 @@ export function getThumbnailUrl(originalUrl) {
 }
 
 /**
+ * Returns all audio files (.mp3, .wav, .ogg, .m4a) discovered in public/ and public/sounds/
+ */
+export function getPublicSoundFiles() {
+  const discovered = ALL_FILES.filter((f) => /\.(mp3|wav|ogg|m4a)$/i.test(f));
+  const defaults = [
+    '/sounds/bm.mp3',
+    '/sounds/powerup.mp3',
+    '/sounds/bonk.mp3',
+    '/sounds/moonbeam.mp3',
+    '/sounds/pop.mp3',
+  ];
+  const merged = new Set([...discovered, ...defaults]);
+  return Array.from(merged);
+}
+
+/**
  * Resolves the game intro MP4 video from public/ automatically
  */
 export function resolveIntroVideo() {
   const videoFiles = ALL_FILES.filter((f) => /\.(mp4|webm|mov)$/i.test(f));
   if (videoFiles.length > 0) {
     const preferred = videoFiles.find((f) =>
-      /(intro|video_1|puff|game|gemini)/i.test(f)
+      /(game_intro|intro|video_1|puff|game|gemini)/i.test(f)
     );
     return preferred || videoFiles[0];
   }
-  return '/video_1.mp4';
+  return '/game_intro.mp4';
 }
 
 /**

@@ -23,15 +23,24 @@ export const INITIAL_CMS_SETTINGS = {
   popularSubtitle: 'Our 8 highest-rated pillows, plushies, and cozy room essentials.',
   defaultWeather: 'none',
   etransferEmail: 'pay@oddlycozypillows.com',
-  // Puff Mascot Settings
+
+  // Mascot & Arcade Operator Settings
   mascotEnabled: true,
   mascotPromoCode: 'COZY15',
   mascotPitches: DEFAULT_MASCOT_PITCHES,
-  // Puff's Cloud Dash Arcade Settings
   gameIntroVideo: '/game_intro.mp4',
   gameRewardScore: 500,
   gameRewardSeconds: 45,
   gameRewardCode: 'SKYDASH20',
+
+  // Cloud Dash Audio Settings
+  gameIntroMusic: '',
+  gameBgMusic: '/sounds/bm.mp3',
+  gamePowerupSound: '/sounds/powerup.mp3',
+  gameBonkSound: '/sounds/bonk.mp3',
+  gameMoonbeamSound: '/sounds/moonbeam.mp3',
+  gameMusicVolume: 0.45,
+  gameSfxVolume: 0.85,
 };
 
 export const INITIAL_PROMO_CODES = [
@@ -84,33 +93,6 @@ export const INITIAL_ORDERS = [
         quantity: 1,
         fulfillmentRoute: 'Plush Supplier',
         image: '/icons/sushi-pillow.svg',
-      },
-    ],
-  },
-  {
-    id: 'OCP-849188',
-    createdAt: '2026-11-11 09:40 AM',
-    customerName: 'Marcus Vance',
-    customerEmail: 'mvance@example.com',
-    shippingAddress: '88 Queen St W, Toronto, ON M5H 2M9',
-    paymentMethod: 'card',
-    paymentStatus: 'Paid',
-    orderStatus: 'In Production',
-    trackingNumber: '',
-    subtotal: 89.99,
-    discount: 0,
-    total: 89.99,
-    items: [
-      {
-        id: 'item-3',
-        name: 'Pink Frosted Donut Matching Set',
-        sizeLabel: 'Includes 2 Printed Pillows (16"×16") + 1 Printed Blanket (50"×60")',
-        modeLabel: 'Standard Edition',
-        price: 89.99,
-        unitCost: 38.0,
-        quantity: 1,
-        fulfillmentRoute: 'Printify Bundle',
-        image: '/images/matching sets/donut-set.jpg',
       },
     ],
   },
