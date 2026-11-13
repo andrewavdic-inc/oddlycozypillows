@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import confetti from 'canvas-confetti';
 import { Sparkles, Wand2, Tag, Check, Move, ArrowDown, Gamepad2 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { DEFAULT_MASCOT_PITCHES } from '../../data/initialAdminData';
+import { DEFAULT_MASCOT_PITCHES } from '../../data/initialAdminData.js';
 import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 

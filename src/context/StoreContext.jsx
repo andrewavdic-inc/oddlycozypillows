@@ -13,7 +13,7 @@ import {
   INITIAL_HIGH_SCORES,
   INITIAL_ORDERS,
   INITIAL_CUSTOM_PROOFS,
-} from '../data/initialAdminData';
+} from '../data/initialAdminData.js';
 import {
   isFirebaseConfigured,
   fetchInitialCloudStore,

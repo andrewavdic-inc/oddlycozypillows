@@ -12,7 +12,7 @@ import {
   Video,
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
-import { DEFAULT_MASCOT_PITCHES } from '../../../data/initialAdminData';
+import { DEFAULT_MASCOT_PITCHES } from '../../../data/initialAdminData.js';
 import { uploadImageFile } from '../../../services/firebaseClient';
 import { resolveLogoVariant } from '../../../utils/publicManifest';
 import { soundFX } from '../../../utils/soundEffects';
