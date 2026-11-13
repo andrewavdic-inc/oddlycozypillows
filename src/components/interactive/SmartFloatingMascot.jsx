@@ -1,12 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { Sparkles, Wand2, Tag, Check, Move } from 'lucide-react';
+import { Sparkles, Wand2, Tag, Check, Move, ArrowDown } from 'lucide-react';
 import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
 const WAKEUP_FRAMES = getWakeupFrames();
 
+const BUTTON_MENU_PITCH = {
+  text: '🧭 Navigate with these buttons, or check out our featured items below!',
+  ctaLabel: 'Featured Items',
+  ctaType: 'scroll-featured',
+};
+
 const SECTION_PITCHES = {
+  'category-bubbles-menu': BUTTON_MENU_PITCH,
   'winter-collection': {
     text: '🎄 Our Winter Collection is flying off the shelves! Click any photo to see it full-screen, or use code COZY15 for 15% off!',
     ctaLabel: 'Copy COZY15 (15% Off)',
@@ -97,7 +104,7 @@ export default function SmartFloatingMascot({
   const openLogo = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
   const blinkLogo = resolveLogoVariant({ theme: 'color', blink: true, withUrl: false });
 
-// Only preload the Wakeup animation frames AFTER the user sends Puff to sleep!
+  // Only preload the Wakeup animation frames AFTER the user sends Puff to sleep
   useEffect(() => {
     if (phase !== 'sleeping') return;
     WAKEUP_FRAMES.forEach((src) => {
@@ -129,29 +136,70 @@ export default function SmartFloatingMascot({
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Scroll & Hover Intelligence: Detect which section or product card the user is viewing
+  // Detects if Puff is physically hovering over the Category Buttons menu or another section
+  const evaluateMascotContext = useCallback((posX, posY) => {
+    if (typeof document === 'undefined') return;
+    const mascotCenterX = posX + 52;
+    const mascotCenterY = posY + 52;
+
+    // 1. Check if Puff himself is hovering over the Category Button Menu
+    const menuEl = document.getElementById('category-bubbles-menu');
+    if (menuEl) {
+      const rect = menuEl.getBoundingClientRect();
+      // Add a 25px buffer around the button menu so sitting right on or near it triggers the reaction
+      const isOverButtonMenu =
+        mascotCenterY >= rect.top - 25 &&
+        mascotCenterY <= rect.bottom + 25 &&
+        mascotCenterX >= rect.left - 25 &&
+        mascotCenterX <= rect.right + 25;
+
+      if (isOverButtonMenu) {
+        setPitch((prev) =>
+          prev.text !== BUTTON_MENU_PITCH.text ? BUTTON_MENU_PITCH : prev
+        );
+        return;
+      }
+    }
+
+    // 2. Otherwise check which section Puff (or the viewport) is currently aligned with
+    const sectionIds = Object.keys(SECTION_PITCHES);
+    for (const id of sectionIds) {
+      const el = document.getElementById(id);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (mascotCenterY >= rect.top && mascotCenterY <= rect.bottom) {
+          setPitch((prev) =>
+            prev.text !== SECTION_PITCHES[id].text ? SECTION_PITCHES[id] : prev
+          );
+          return;
+        }
+      }
+    }
+  }, []);
+
+  // Re-evaluate whenever Puff is moved/dragged
+  useEffect(() => {
+    if (phase !== 'awake') return;
+    evaluateMascotContext(position.x, position.y);
+  }, [position.x, position.y, phase, currentPage, evaluateMascotContext]);
+
+  // Scroll & Hover Intelligence
   useEffect(() => {
     if (phase !== 'awake') return;
 
     const handleScroll = () => {
-      const sectionIds = Object.keys(SECTION_PITCHES);
-      const viewportCenter = window.innerHeight * 0.45;
-
-      for (const id of sectionIds) {
-        const el = document.getElementById(id);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          if (rect.top <= viewportCenter && rect.bottom >= viewportCenter) {
-            setPitch((prev) =>
-              prev.text !== SECTION_PITCHES[id].text ? SECTION_PITCHES[id] : prev
-            );
-            break;
-          }
-        }
-      }
+      evaluateMascotContext(position.x, position.y);
     };
 
     const handleMouseOver = (e) => {
+      // React if the user hovers over the category buttons menu
+      const catBtnEl = e.target.closest('[data-category-button]');
+      if (catBtnEl) {
+        setPitch(BUTTON_MENU_PITCH);
+        return;
+      }
+
+      // React if the user hovers over a product card
       const cardTitleEl = e.target.closest('[data-product-title]');
       if (cardTitleEl) {
         const title = cardTitleEl.getAttribute('data-product-title');
@@ -175,7 +223,7 @@ export default function SmartFloatingMascot({
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('mouseover', handleMouseOver);
     };
-  }, [phase, currentPage]);
+  }, [phase, currentPage, position.x, position.y, evaluateMascotContext]);
 
   // Global Pointer Move / Up listeners for smooth Mouse & Touch dragging
   useEffect(() => {
@@ -222,14 +270,12 @@ export default function SmartFloatingMascot({
   };
 
   const handleMascotClick = () => {
-    // Only squeak if it was a tap/click (not a drag across the screen)
     if (dragRef.current.movedDistance > 8) return;
     soundFX.playMascotSqueak();
     setIsBlinking(true);
     setTimeout(() => setIsBlinking(false), 240);
   };
 
-  // Triggered when the user clicks "Nap now"
   const handleManualNap = (e) => {
     e.stopPropagation();
     if (phase !== 'awake') return;
@@ -250,7 +296,13 @@ export default function SmartFloatingMascot({
   // Handle 1-Click Sales Action inside Speech Bubble
   const handlePromptAction = (e) => {
     e.stopPropagation();
-    if (pitch.ctaType === 'open-customizer') {
+    if (pitch.ctaType === 'scroll-featured') {
+      soundFX.playPop();
+      const targetEl =
+        document.getElementById('winter-collection') ||
+        document.getElementById('printed-pillows');
+      targetEl?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (pitch.ctaType === 'open-customizer') {
       soundFX.playBoing();
       onOpenCustomizer?.();
     } else {
@@ -296,11 +348,7 @@ export default function SmartFloatingMascot({
           clearInterval(animInterval);
           setIsLaunchingUp(false);
           setPhase('awake');
-          setPitch({
-            text: "✨ *Squeak!* I'm wide awake! Drag me anywhere around the screen while you shop!",
-            ctaLabel: 'Copy COZY15 (15% Off)',
-            ctaType: 'copy-code',
-          });
+          evaluateMascotContext(position.x, position.y);
         }
       }, 45);
     }
@@ -399,14 +447,13 @@ export default function SmartFloatingMascot({
         phase === 'poofing' ? 'scale-150 opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Poof Cloud Particles when Disappearing */}
       {phase === 'poofing' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-28 h-28 rounded-full bg-white/80 animate-ping" />
         </div>
       )}
 
-      {/* Intelligent Speech Bubble (Automatically flips below Puff if dragged near top header) */}
+      {/* Intelligent Speech Bubble */}
       <div
         className={`absolute ${
           isNearTop ? 'top-full mt-3' : 'bottom-full mb-3'
@@ -434,6 +481,11 @@ export default function SmartFloatingMascot({
                     <Check className="w-3 h-3" />
                     Copied COZY15!
                   </>
+                ) : pitch.ctaType === 'scroll-featured' ? (
+                  <>
+                    <ArrowDown className="w-3 h-3" />
+                    {pitch.ctaLabel}
+                  </>
                 ) : pitch.ctaType === 'open-customizer' ? (
                   <>
                     <Wand2 className="w-3 h-3" />
@@ -458,7 +510,6 @@ export default function SmartFloatingMascot({
           </>
         )}
 
-        {/* Speech Bubble Tail */}
         <div
           className={`w-3.5 h-3.5 bg-white border-slate-900 rotate-45 absolute ${
             isNearTop
@@ -489,7 +540,6 @@ export default function SmartFloatingMascot({
           className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_12px_18px_rgba(15,23,42,0.28)] group-hover:scale-105 transition-transform duration-200 pointer-events-none"
         />
 
-        {/* Subtle Drag Hint Badge on Hover */}
         <span className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-900/80 text-white text-[9px] font-bold whitespace-nowrap flex items-center gap-1 shadow">
           <Move className="w-2.5 h-2.5 text-amber-300" />
           Drag me

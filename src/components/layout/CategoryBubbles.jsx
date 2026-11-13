@@ -32,6 +32,7 @@ function CategoryPngButton({ category, index, onSelect }) {
   return (
     <button
       type="button"
+      data-category-button={category.shortName}
       onClick={() => {
         soundFX.playPop();
         onSelect(category);
@@ -62,7 +63,10 @@ export default function CategoryBubbles({ onSelectCategory }) {
   const allButtons = [...categories, SHOP_ALL_BUTTON];
 
   return (
-    <section className="max-w-7xl mx-auto px-3 sm:px-6 py-2">
+    <section
+      id="category-bubbles-menu"
+      className="max-w-7xl mx-auto px-3 sm:px-6 py-2"
+    >
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5 sm:gap-2 items-center justify-items-center">
         {allButtons.map((cat, idx) => (
           <CategoryPngButton
