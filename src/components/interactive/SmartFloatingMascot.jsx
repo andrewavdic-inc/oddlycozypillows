@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
-import { Sparkles, Wand2, Tag, Check } from 'lucide-react';
+import { Sparkles, Wand2, Tag, Check, Move } from 'lucide-react';
 import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
@@ -59,6 +59,14 @@ const SECTION_PITCHES = {
   },
 };
 
+function getInitialMascotPosition() {
+  if (typeof window === 'undefined') return { x: 900, y: 340 };
+  return {
+    x: Math.max(20, window.innerWidth - 145),
+    y: Math.min(340, Math.max(240, window.innerHeight * 0.42)),
+  };
+}
+
 export default function SmartFloatingMascot({
   currentPage,
   onOpenCustomizer,
@@ -69,13 +77,22 @@ export default function SmartFloatingMascot({
   const [pitch, setPitch] = useState(SECTION_PITCHES['winter-collection']);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Draggable Position State
+  const [position, setPosition] = useState(getInitialMascotPosition);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({
+    active: false,
+    startX: 0,
+    startY: 0,
+    initialX: 0,
+    initialY: 0,
+    movedDistance: 0,
+  });
+
   // Sleeping & 3-Tap Wake-Up States
   const [tapCount, setTapCount] = useState(0);
   const [frameIndex, setFrameIndex] = useState(0);
   const [isLaunchingUp, setIsLaunchingUp] = useState(false);
-
-  const timerRef = useRef(null);
-  const goodbyeRef = useRef(null);
 
   const openLogo = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
   const blinkLogo = resolveLogoVariant({ theme: 'color', blink: true, withUrl: false });
@@ -88,6 +105,18 @@ export default function SmartFloatingMascot({
     });
   }, []);
 
+  // Keep Puff inside the screen if the browser window is resized
+  useEffect(() => {
+    const handleResize = () => {
+      setPosition((prev) => ({
+        x: Math.max(16, Math.min(window.innerWidth - 130, prev.x)),
+        y: Math.max(90, Math.min(window.innerHeight - 140, prev.y)),
+      }));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Natural blinking loop while awake
   useEffect(() => {
     if (phase !== 'awake') return;
@@ -97,37 +126,6 @@ export default function SmartFloatingMascot({
     }, 3200 + Math.random() * 1500);
     return () => clearInterval(interval);
   }, [phase]);
-
-  // 20-Second Active Timer -> Says Goodbye -> Plays pop.mp3 -> Goes to Sleep at Bottom
-  const startTwentySecondTimer = useCallback(() => {
-    clearTimeout(timerRef.current);
-    clearTimeout(goodbyeRef.current);
-
-    goodbyeRef.current = setTimeout(() => {
-      setPhase('goodbye');
-      soundFX.playMascotSqueak();
-    }, 16800);
-
-    timerRef.current = setTimeout(() => {
-      soundFX.playDisappearPopMp3();
-      setPhase('poofing');
-      setTimeout(() => {
-        setTapCount(0);
-        setFrameIndex(0);
-        setPhase('sleeping');
-      }, 380);
-    }, 20000);
-  }, []);
-
-  useEffect(() => {
-    if (phase === 'awake') {
-      startTwentySecondTimer();
-    }
-    return () => {
-      clearTimeout(timerRef.current);
-      clearTimeout(goodbyeRef.current);
-    };
-  }, [phase, startTwentySecondTimer]);
 
   // Scroll & Hover Intelligence: Detect which section or product card the user is viewing
   useEffect(() => {
@@ -177,10 +175,79 @@ export default function SmartFloatingMascot({
     };
   }, [phase, currentPage]);
 
+  // Global Pointer Move / Up listeners for smooth Mouse & Touch dragging
+  useEffect(() => {
+    const handlePointerMove = (e) => {
+      if (!dragRef.current.active) return;
+      const dx = e.clientX - dragRef.current.startX;
+      const dy = e.clientY - dragRef.current.startY;
+      dragRef.current.movedDistance = Math.hypot(dx, dy);
+
+      const nextX = Math.max(16, Math.min(window.innerWidth - 125, dragRef.current.initialX + dx));
+      const nextY = Math.max(85, Math.min(window.innerHeight - 135, dragRef.current.initialY + dy));
+
+      setPosition({ x: nextX, y: nextY });
+    };
+
+    const handlePointerUp = () => {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      setIsDragging(false);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, []);
+
+  const handleMascotPointerDown = (e) => {
+    if (phase !== 'awake') return;
+    e.preventDefault();
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: position.x,
+      initialY: position.y,
+      movedDistance: 0,
+    };
+    setIsDragging(true);
+  };
+
+  const handleMascotClick = () => {
+    // Only squeak if it was a tap/click (not a drag across the screen)
+    if (dragRef.current.movedDistance > 8) return;
+    soundFX.playMascotSqueak();
+    setIsBlinking(true);
+    setTimeout(() => setIsBlinking(false), 240);
+  };
+
+  // Triggered when the user clicks "Nap now"
+  const handleManualNap = (e) => {
+    e.stopPropagation();
+    if (phase !== 'awake') return;
+    soundFX.playMascotSqueak();
+    setPhase('goodbye');
+
+    setTimeout(() => {
+      soundFX.playDisappearPopMp3();
+      setPhase('poofing');
+      setTimeout(() => {
+        setTapCount(0);
+        setFrameIndex(0);
+        setPhase('sleeping');
+      }, 380);
+    }, 2000);
+  };
+
   // Handle 1-Click Sales Action inside Speech Bubble
   const handlePromptAction = (e) => {
     e.stopPropagation();
-    startTwentySecondTimer();
     if (pitch.ctaType === 'open-customizer') {
       soundFX.playBoing();
       onOpenCustomizer?.();
@@ -228,7 +295,7 @@ export default function SmartFloatingMascot({
           setIsLaunchingUp(false);
           setPhase('awake');
           setPitch({
-            text: "✨ *Squeak!* I'm wide awake and ready to help you find the coziest gifts!",
+            text: "✨ *Squeak!* I'm wide awake! Drag me anywhere around the screen while you shop!",
             ctaLabel: 'Copy COZY15 (15% Off)',
             ctaType: 'copy-code',
           });
@@ -250,7 +317,6 @@ export default function SmartFloatingMascot({
           isLaunchingUp ? '-translate-y-72 scale-125 opacity-0' : 'translate-y-0 opacity-100'
         }`}
       >
-        {/* Floating Animated Zzz's while Sleeping */}
         {phase === 'sleeping' && (
           <div className="relative w-full h-10 pointer-events-none flex justify-center">
             <span className="absolute bottom-0 left-1/2 font-display font-extrabold text-sm text-indigo-500 animate-bounce opacity-80">
@@ -271,12 +337,10 @@ export default function SmartFloatingMascot({
           </div>
         )}
 
-        {/* Spectacular Shockwave Ring on Wake-Up */}
         {phase === 'waking' && (
           <div className="absolute inset-0 rounded-full bg-amber-300/40 animate-ping pointer-events-none" />
         )}
 
-        {/* Borderless Sleeping / Waking Mascot PNG Sequence */}
         <button
           type="button"
           onClick={handleSleepingTap}
@@ -301,7 +365,6 @@ export default function SmartFloatingMascot({
           />
         </button>
 
-        {/* Tap Progress Pill */}
         <div className="mt-1 px-3 py-1 rounded-full bg-slate-900/90 backdrop-blur-md text-white text-[11px] font-extrabold shadow-lg flex items-center gap-1.5">
           {phase === 'waking' ? (
             <span className="text-amber-300 flex items-center gap-1">
@@ -320,11 +383,18 @@ export default function SmartFloatingMascot({
     );
   }
 
-  // ================= RENDER 2: AWAKE, FLOATING, BORDERLESS SALES MASCOT =================
+  // ================= RENDER 2: AWAKE, DRAGGABLE, BORDERLESS SALES MASCOT =================
+  const isNearTop = position.y < 230;
+  const isNearLeft = position.x < 260;
+
   return (
     <div
-      className={`fixed top-24 right-4 sm:right-7 z-40 select-none flex flex-col items-end transition-all duration-300 ${
-        phase === 'poofing' ? 'scale-150 opacity-0' : 'scale-100 opacity-100'
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+      }}
+      className={`fixed z-[45] select-none transition-opacity duration-300 ${
+        phase === 'poofing' ? 'scale-150 opacity-0' : 'opacity-100'
       }`}
     >
       {/* Poof Cloud Particles when Disappearing */}
@@ -334,11 +404,19 @@ export default function SmartFloatingMascot({
         </div>
       )}
 
-      {/* Intelligent Speech Bubble */}
-      <div className="mb-2 p-3.5 rounded-3xl bg-white/95 backdrop-blur-md text-slate-900 text-xs font-bold shadow-[0_12px_30px_rgba(15,23,42,0.22)] border-2 border-slate-900 max-w-[250px] sm:max-w-[270px] relative animate-float">
+      {/* Intelligent Speech Bubble (Automatically flips below Puff if dragged near top header) */}
+      <div
+        className={`absolute ${
+          isNearTop ? 'top-full mt-3' : 'bottom-full mb-3'
+        } ${
+          isNearLeft ? 'left-0' : 'right-0'
+        } w-[245px] sm:w-[265px] p-3.5 rounded-3xl bg-white/95 backdrop-blur-md text-slate-900 text-xs font-bold shadow-[0_12px_30px_rgba(15,23,42,0.22)] border-2 border-slate-900 ${
+          isDragging ? '' : 'animate-float'
+        }`}
+      >
         {phase === 'goodbye' ? (
           <p className="text-rose-600 font-extrabold leading-snug">
-            👋 Goodbye for now! I’ll be napping at the bottom of the screen if you need me!
+            👋 Goodbye for now! I’ll be napping at the bottom of the screen!
           </p>
         ) : (
           <>
@@ -369,48 +447,52 @@ export default function SmartFloatingMascot({
 
               <button
                 type="button"
-                onClick={() => {
-                  soundFX.playDisappearPopMp3();
-                  setPhase('poofing');
-                  setTimeout(() => {
-                    setTapCount(0);
-                    setFrameIndex(0);
-                    setPhase('sleeping');
-                  }, 350);
-                }}
-                className="text-[10px] font-bold text-slate-400 hover:text-slate-700 underline"
+                onClick={handleManualNap}
+                className="px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-[10px] font-extrabold text-slate-600 hover:text-slate-900 transition-colors"
               >
-                Nap now
+                💤 Nap now
               </button>
             </div>
           </>
         )}
 
-        {/* Speech Bubble Tail pointing to Puff */}
-        <div className="w-3.5 h-3.5 bg-white border-r-2 border-b-2 border-slate-900 rotate-45 absolute -bottom-2 right-10" />
+        {/* Speech Bubble Tail */}
+        <div
+          className={`w-3.5 h-3.5 bg-white border-slate-900 rotate-45 absolute ${
+            isNearTop
+              ? '-top-2 border-l-2 border-t-2'
+              : '-bottom-2 border-r-2 border-b-2'
+          } ${isNearLeft ? 'left-10' : 'right-10'}`}
+        />
       </div>
 
-      {/* Borderless Floating Animated Mascot */}
-      <button
-        type="button"
-        onClick={() => {
-          soundFX.playMascotSqueak();
-          setIsBlinking(true);
-          setTimeout(() => setIsBlinking(false), 240);
-          startTwentySecondTimer();
-        }}
-        title="Click me for a squeak!"
-        className="bg-transparent border-0 outline-none focus:outline-none cursor-pointer p-0 group animate-float-delayed"
+      {/* Draggable Borderless Mascot Body */}
+      <div
+        onPointerDown={handleMascotPointerDown}
+        onClick={handleMascotClick}
+        role="button"
+        tabIndex={0}
+        title="Drag me anywhere on the screen, or click me to squeak!"
+        className={`relative touch-none bg-transparent border-0 outline-none select-none group ${
+          isDragging ? 'cursor-grabbing scale-110' : 'cursor-grab animate-float-delayed'
+        }`}
       >
         <img
           src={isBlinking ? blinkLogo : openLogo}
           onError={(e) => {
             e.currentTarget.src = '/logo-full-color.svg';
           }}
-          alt="Puff the Floating Pillow Stuffing Mascot"
-          className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_12px_18px_rgba(15,23,42,0.28)] group-hover:scale-110 group-hover:rotate-6 transition-transform duration-200"
+          draggable={false}
+          alt="Puff the Moveable Pillow Stuffing Mascot"
+          className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_12px_18px_rgba(15,23,42,0.28)] group-hover:scale-105 transition-transform duration-200 pointer-events-none"
         />
-      </button>
+
+        {/* Subtle Drag Hint Badge on Hover */}
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-slate-900/80 text-white text-[9px] font-bold whitespace-nowrap flex items-center gap-1 shadow">
+          <Move className="w-2.5 h-2.5 text-amber-300" />
+          Drag me
+        </span>
+      </div>
     </div>
   );
 }

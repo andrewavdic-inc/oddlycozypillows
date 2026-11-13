@@ -11,7 +11,6 @@ import CustomizerModal from './components/customizer/CustomizerModal';
 import CartDrawer from './components/checkout/CartDrawer';
 import CheckoutModal from './components/checkout/CheckoutModal';
 import WeatherOverlay from './components/interactive/WeatherOverlay';
-import FlashlightGameModal from './components/interactive/FlashlightGameModal';
 import SmartFloatingMascot from './components/interactive/SmartFloatingMascot';
 import Footer from './components/layout/Footer';
 import AdminPinModal from './components/admin/AdminPinModal';
@@ -256,7 +255,7 @@ export default function App() {
         />
       )}
 
-      {/* Intelligent Borderless Floating Mascot + 20s Nap Timer + 49-Frame Wakeup */}
+      {/* Moveable, Borderless Floating Mascot + Manual Nap + 49-Frame Wakeup */}
       <SmartFloatingMascot
         currentPage={currentPage}
         onOpenCustomizer={() =>
@@ -275,10 +274,6 @@ export default function App() {
             defaultType: product.productType || 'pillow',
           })
         }
-      />
-
-      <FlashlightGameModal
-        onOpenCustomizer={() => handleNavigateHomeSection('customizer-section')}
       />
 
       <Footer
