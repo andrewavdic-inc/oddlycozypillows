@@ -8,6 +8,7 @@ import {
 import { PRODUCTS_DATA as DEFAULT_PRODUCTS } from '../data/productsData';
 import {
   INITIAL_CMS_SETTINGS,
+  DEFAULT_MASCOT_PITCHES,
   INITIAL_PROMO_CODES,
   INITIAL_HIGH_SCORES,
   INITIAL_ORDERS,
@@ -21,7 +22,6 @@ import {
 } from '../services/firebaseClient';
 
 const StoreContext = createContext(null);
-
 const STORAGE_KEY = 'oddly_cozy_store_v2';
 
 const DEFAULT_WINTER_IDS = new Set([
@@ -70,7 +70,8 @@ function enrichDefaultProducts(products) {
       inStock: p.inStock !== undefined ? p.inStock : true,
       isWinter: Boolean(isWinter),
       isPopular: Boolean(isPopular),
-      unitCost: p.unitCost !== undefined ? Number(p.unitCost) : Number((p.price * 0.42).toFixed(2)),
+      unitCost:
+        p.unitCost !== undefined ? Number(p.unitCost) : Number((p.price * 0.42).toFixed(2)),
       fulfillmentRoute:
         p.fulfillmentRoute ||
         (p.customizable || p.categoryId === 'rugs' || p.categoryId === 'matching-sets'
@@ -88,13 +89,25 @@ function mergeCategoriesWithButtons(savedCategories) {
       ? {
           ...defCat,
           ...found,
-          buttonBaseName: defCat.buttonBaseName,
-          buttonPng: defCat.buttonPng,
-          buttonFallback: defCat.buttonFallback,
+          buttonBaseName: found.buttonBaseName || defCat.buttonBaseName,
+          buttonPng: found.buttonPng || defCat.buttonPng,
+          buttonFallback: found.buttonFallback || defCat.buttonFallback,
           onHomePage: defCat.onHomePage,
         }
       : defCat;
   });
+}
+
+function mergeCmsWithDefaults(savedCms) {
+  if (!savedCms) return INITIAL_CMS_SETTINGS;
+  return {
+    ...INITIAL_CMS_SETTINGS,
+    ...savedCms,
+    mascotPitches: {
+      ...DEFAULT_MASCOT_PITCHES,
+      ...(savedCms.mascotPitches || {}),
+    },
+  };
 }
 
 export function StoreProvider({ children }) {
@@ -116,7 +129,7 @@ export function StoreProvider({ children }) {
 
   const applyStoreData = (data) => {
     if (!data) return;
-    if (data.cms) setCms((prev) => ({ ...prev, ...data.cms }));
+    if (data.cms) setCms(mergeCmsWithDefaults(data.cms));
     if (data.categories?.length) setCategories(mergeCategoriesWithButtons(data.categories));
     if (data.products?.length) setProducts(enrichDefaultProducts(data.products));
     if (data.prints?.length) setPrints(data.prints);
@@ -171,7 +184,7 @@ export function StoreProvider({ children }) {
     return () => unsub();
   }, []);
 
-  const persistState = async (nextPartialState) => {
+  const persistState = async (nextPartialState = {}) => {
     const fullPayload = {
       cms,
       categories,
@@ -205,8 +218,12 @@ export function StoreProvider({ children }) {
     }
   };
 
+  const forceCloudSync = async () => {
+    await persistState({});
+  };
+
   const updateCms = (updates) => {
-    const next = { ...cms, ...updates };
+    const next = mergeCmsWithDefaults({ ...cms, ...updates });
     setCms(next);
     persistState({ cms: next });
   };
@@ -228,6 +245,33 @@ export function StoreProvider({ children }) {
 
   const deleteProduct = (productId) => {
     const next = products.filter((p) => p.id !== productId);
+    setProducts(next);
+    persistState({ products: next });
+  };
+
+  // Reorders products inside the 8-slot Winter or Most Popular tray
+  const reorderFeaturedProduct = (productId, direction, flagKey) => {
+    const featuredIndices = [];
+    products.forEach((p, idx) => {
+      if (p[flagKey]) featuredIndices.push(idx);
+    });
+
+    const posInFeatured = featuredIndices.findIndex(
+      (prodIdx) => products[prodIdx].id === productId
+    );
+    if (posInFeatured === -1) return;
+
+    const targetPos = direction === 'left' ? posInFeatured - 1 : posInFeatured + 1;
+    if (targetPos < 0 || targetPos >= featuredIndices.length) return;
+
+    const idxA = featuredIndices[posInFeatured];
+    const idxB = featuredIndices[targetPos];
+
+    const next = [...products];
+    const temp = next[idxA];
+    next[idxA] = next[idxB];
+    next[idxB] = temp;
+
     setProducts(next);
     persistState({ products: next });
   };
@@ -290,9 +334,25 @@ export function StoreProvider({ children }) {
     };
     const next = [...highScores, entry]
       .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
+      .slice(0, 15);
     setHighScores(next);
     persistState({ highScores: next });
+  };
+
+  const deleteHighScore = (scoreId) => {
+    const next = highScores.filter((h) => h.id !== scoreId);
+    setHighScores(next);
+    persistState({ highScores: next });
+  };
+
+  const resetHighScores = () => {
+    setHighScores(INITIAL_HIGH_SCORES);
+    persistState({ highScores: INITIAL_HIGH_SCORES });
+  };
+
+  const importBackupData = async (parsedData) => {
+    applyStoreData(parsedData);
+    await persistState(parsedData);
   };
 
   const resetToFactoryDefaults = async () => {
@@ -324,6 +384,7 @@ export function StoreProvider({ children }) {
         products,
         saveProduct,
         deleteProduct,
+        reorderFeaturedProduct,
         prints,
         savePrintsList,
         pillowSizes,
@@ -339,6 +400,10 @@ export function StoreProvider({ children }) {
         savePromoCodes,
         highScores,
         addHighScore,
+        deleteHighScore,
+        resetHighScores,
+        forceCloudSync,
+        importBackupData,
         resetToFactoryDefaults,
         isFirebaseConfigured,
         syncStatus,

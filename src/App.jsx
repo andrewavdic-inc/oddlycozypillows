@@ -33,11 +33,18 @@ export default function App() {
     product: null,
     defaultType: 'pillow',
   });
-  const [activeWeather, setActiveWeather] = useState('none');
+  const [activeWeather, setActiveWeather] = useState(cms?.defaultWeather || 'none');
   const [isMuted, setIsMuted] = useState(false);
 
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+
+  // Sync default weather when CMS loads from Firebase
+  useEffect(() => {
+    if (cms?.defaultWeather) {
+      setActiveWeather(cms.defaultWeather);
+    }
+  }, [cms?.defaultWeather]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -257,7 +264,6 @@ export default function App() {
         />
       )}
 
-      {/* Moveable Floating Mascot (Tap 10x Quickly to Unlock Puff's Cloud Dash!) */}
       <SmartFloatingMascot
         currentPage={currentPage}
         onOpenCustomizer={() =>
@@ -266,7 +272,6 @@ export default function App() {
         onOpenSkyGame={() => setIsSkyGameOpen(true)}
       />
 
-      {/* Secret 20:9 Endless Flying Game Modal */}
       <PuffSkyGameModal
         isOpen={isSkyGameOpen}
         onClose={() => setIsSkyGameOpen(false)}

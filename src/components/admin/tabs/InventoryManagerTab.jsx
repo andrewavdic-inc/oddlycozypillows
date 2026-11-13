@@ -11,6 +11,9 @@ import {
   Star,
   Wand2,
   Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { uploadImageFile } from '../../../services/firebaseClient';
@@ -24,17 +27,18 @@ export default function InventoryManagerTab() {
     savePrintsList,
     saveProduct,
     deleteProduct,
+    reorderFeaturedProduct,
   } = useStore();
 
   const [filterCat, setFilterCat] = useState('all');
+  const [activeTray, setActiveTray] = useState('winter'); // 'winter' | 'popular'
   const [editingItem, setEditingItem] = useState(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isUploadingPrint, setIsUploadingPrint] = useState(false);
 
-  const winterCount = products.filter((p) => p.isWinter).length;
-  const popularCount = products.filter((p) => p.isPopular).length;
+  const winterProducts = products.filter((p) => p.isWinter);
+  const popularProducts = products.filter((p) => p.isPopular);
 
-  // Combine store prints with any raw files discovered in public/prints/
   const publicPrintUrls = getPublicPrintFiles();
   const allAvailablePrints = [...prints];
   publicPrintUrls.forEach((url) => {
@@ -53,9 +57,9 @@ export default function InventoryManagerTab() {
     filterCat === 'all'
       ? products
       : filterCat === 'winter'
-      ? products.filter((p) => p.isWinter)
+      ? winterProducts
       : filterCat === 'popular'
-      ? products.filter((p) => p.isPopular)
+      ? popularProducts
       : products.filter((p) => p.categoryId === filterCat);
 
   const openEditModal = (item) => {
@@ -105,7 +109,6 @@ export default function InventoryManagerTab() {
     });
   };
 
-  // Upload 1 or multiple Product Mockup Photos
   const handleProductPhotosUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length || !editingItem) return;
@@ -174,7 +177,6 @@ export default function InventoryManagerTab() {
     });
   };
 
-  // Upload a new Transparent PNG Print directly and assign it to this product
   const handleUploadNewTransparentPrint = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !editingItem) return;
@@ -242,15 +244,18 @@ export default function InventoryManagerTab() {
     ? getFolderImages(folderMap[editingItem.categoryId] || '')
     : [];
 
+  const trayItems = activeTray === 'winter' ? winterProducts : popularProducts;
+  const trayFlagKey = activeTray === 'winter' ? 'isWinter' : 'isPopular';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="font-display text-3xl font-bold">
-            Inventory & Customizer Print Links
+            Inventory, 8-Slot Featured Tray & Print Links
           </h2>
           <p className="text-sm text-slate-600">
-            Manage product photos, pick your <strong>Primary Photo</strong>, and assign the exact <strong>Transparent PNG Print</strong> for the customizer!
+            Reorder your 8 front-page featured slots, select Primary Photos, and link Transparent PNG Prints for the customizer.
           </p>
         </div>
 
@@ -262,6 +267,119 @@ export default function InventoryManagerTab() {
           <Plus className="w-4 h-4" />
           Add New Product
         </button>
+      </div>
+
+      {/* VISUAL 8-SLOT FEATURED TRAY WITH REORDERING */}
+      <div className="bg-white rounded-3xl border-3 border-slate-900 p-4 sm:p-5 shadow-[0_6px_0_#1E1E24] space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTray('winter')}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold border-2 border-slate-900 transition-all ${
+                activeTray === 'winter'
+                  ? 'bg-sky-500 text-white shadow-[0_2px_0_#1E1E24]'
+                  : 'bg-sky-50 text-sky-900'
+              }`}
+            >
+              <Snowflake className="w-3.5 h-3.5" />
+              Front-Page Winter Tray ({winterProducts.length}/8)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTray('popular')}
+              className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold border-2 border-slate-900 transition-all ${
+                activeTray === 'popular'
+                  ? 'bg-amber-400 text-slate-900 shadow-[0_2px_0_#1E1E24]'
+                  : 'bg-amber-50 text-amber-900'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5" />
+              Front-Page Popular Tray ({popularProducts.length}/8)
+            </button>
+          </div>
+
+          <span className="text-[11px] font-bold text-slate-500">
+            Use ◀ ▶ arrows to reorder how the 8 items appear on the Home Page
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+          {Array.from({ length: 8 }).map((_, slotIdx) => {
+            const item = trayItems[slotIdx];
+            if (!item) {
+              return (
+                <div
+                  key={`empty-${slotIdx}`}
+                  className="h-32 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center p-2 text-center"
+                >
+                  <span className="text-[10px] font-extrabold text-slate-400">
+                    Slot #{slotIdx + 1} Empty
+                  </span>
+                  <span className="text-[9px] text-slate-400 mt-0.5">
+                    Click {activeTray === 'winter' ? '❄️ Winter' : '🔥 Popular'} on any item below
+                  </span>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={item.id}
+                className="relative rounded-2xl border-2 border-slate-900 bg-slate-50 p-2 flex flex-col justify-between shadow-sm"
+              >
+                <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-600 mb-1">
+                  <span>#{slotIdx + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      saveProduct({ ...item, [trayFlagKey]: false })
+                    }
+                    title="Remove from this featured section"
+                    className="text-slate-400 hover:text-rose-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <img
+                  src={item.image}
+                  alt={item.name}
+                  onClick={() => openEditModal(item)}
+                  className="w-full h-14 object-cover rounded-xl border border-slate-300 cursor-pointer"
+                />
+
+                <p className="text-[10px] font-bold truncate mt-1 text-slate-900">
+                  {item.name}
+                </p>
+
+                <div className="flex items-center justify-between mt-1 pt-1 border-t border-slate-200">
+                  <button
+                    type="button"
+                    disabled={slotIdx === 0}
+                    onClick={() =>
+                      reorderFeaturedProduct(item.id, 'left', trayFlagKey)
+                    }
+                    className="p-0.5 rounded hover:bg-slate-200 disabled:opacity-25"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={slotIdx >= trayItems.length - 1}
+                    onClick={() =>
+                      reorderFeaturedProduct(item.id, 'right', trayFlagKey)
+                    }
+                    className="p-0.5 rounded hover:bg-slate-200 disabled:opacity-25"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Category & Featured Filter Pills */}
@@ -284,7 +402,7 @@ export default function InventoryManagerTab() {
           }`}
         >
           <Snowflake className="w-3.5 h-3.5" />
-          Winter Collection ({winterCount}/8)
+          Winter ({winterProducts.length}/8)
         </button>
 
         <button
@@ -295,7 +413,7 @@ export default function InventoryManagerTab() {
           }`}
         >
           <Flame className="w-3.5 h-3.5" />
-          Most Popular ({popularCount}/8)
+          Popular ({popularProducts.length}/8)
         </button>
 
         {categories.map((cat) => (
@@ -319,7 +437,7 @@ export default function InventoryManagerTab() {
         ))}
       </div>
 
-      {/* ================= UPGRADED ADD / EDIT PRODUCT MODAL ================= */}
+      {/* ADD / EDIT PRODUCT MODAL */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           <form
@@ -374,7 +492,6 @@ export default function InventoryManagerTab() {
                 </label>
               </div>
 
-              {/* Current Product Photo Gallery */}
               {editingItem.images && editingItem.images.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {editingItem.images.map((imgUrl, idx) => {
@@ -395,7 +512,6 @@ export default function InventoryManagerTab() {
                           className="w-full h-28 object-cover"
                         />
 
-                        {/* Primary Badge */}
                         <div
                           className={`px-2 py-1 text-[10px] font-extrabold flex items-center justify-center gap-1 ${
                             isPrimary
@@ -411,7 +527,6 @@ export default function InventoryManagerTab() {
                           <span>{isPrimary ? 'Primary Photo' : 'Set as Primary'}</span>
                         </div>
 
-                        {/* Remove Photo Button */}
                         {editingItem.images.length > 1 && (
                           <button
                             type="button"
@@ -435,7 +550,6 @@ export default function InventoryManagerTab() {
                 </p>
               )}
 
-              {/* Quick Pick from Public Category Folder */}
               {localFolderFiles.length > 0 && (
                 <div className="pt-2 border-t border-amber-200/80">
                   <span className="text-[11px] font-bold text-slate-600 block mb-1.5">
@@ -503,7 +617,6 @@ export default function InventoryManagerTab() {
 
               {editingItem.customizable && (
                 <div className="space-y-3">
-                  {/* Currently Assigned Print Preview */}
                   <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border-2 border-slate-900">
                     <div className="w-14 h-14 rounded-xl bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:8px_8px] border border-slate-300 flex items-center justify-center shrink-0 p-1">
                       {editingItem.assignedPrintUrl || editingItem.printId ? (
@@ -537,7 +650,6 @@ export default function InventoryManagerTab() {
                     </div>
                   </div>
 
-                  {/* Visual Grid of All Transparent PNG Prints */}
                   <div>
                     <span className="text-[11px] font-bold text-slate-700 block mb-1.5">
                       Click any Transparent PNG Print below to assign it to this product:
@@ -783,11 +895,21 @@ export default function InventoryManagerTab() {
                       {item.inStock ? 'In Stock' : 'Sold Out'}
                     </span>
 
-                    {item.customizable && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 truncate max-w-[140px]">
-                        🎨 Print: {assignedPrint ? assignedPrint.name : 'Auto-Match'}
-                      </span>
-                    )}
+                    {item.customizable &&
+                      (assignedPrint ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 truncate max-w-[145px]">
+                          🎨 Print: {assignedPrint.name}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(item)}
+                          className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-200 hover:bg-amber-300 text-slate-900 inline-flex items-center gap-1 border border-slate-900"
+                        >
+                          <AlertTriangle className="w-2.5 h-2.5 text-rose-600" />
+                          Needs Print Link
+                        </button>
+                      ))}
                   </div>
 
                   <h4 className="font-display font-bold text-base truncate mt-0.5">
@@ -802,7 +924,6 @@ export default function InventoryManagerTab() {
                 </div>
               </div>
 
-              {/* 1-Click Section Curation & Edit Controls */}
               <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
                 <div className="flex items-center gap-1.5">
                   <button

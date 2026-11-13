@@ -1,75 +1,17 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { Sparkles, Wand2, Tag, Check, Move, ArrowDown, Gamepad2 } from 'lucide-react';
+import { useStore } from '../../context/StoreContext';
+import { DEFAULT_MASCOT_PITCHES } from '../../data/initialAdminData';
 import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
 const WAKEUP_FRAMES = getWakeupFrames();
 
-const BUTTON_MENU_PITCH = {
-  text: '🧭 Navigate with these buttons, or check out our featured items below!',
-  ctaLabel: 'Featured Items',
-  ctaType: 'scroll-featured',
-};
-
 const ANTSY_GAME_PITCH = {
   text: "⚡ Someone's a little antsy… do you want to play Puff's Cloud Dash?",
   ctaLabel: "Play Puff's Cloud Dash!",
   ctaType: 'open-sky-game',
-};
-
-const SECTION_PITCHES = {
-  'category-bubbles-menu': BUTTON_MENU_PITCH,
-  'winter-collection': {
-    text: '🎄 Our Winter Collection is flying off the shelves! Click any photo to see it full-screen, or use code COZY15 for 15% off!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
-  'most-popular': {
-    text: '🔥 These are our #1 customer favorites! The French Fries & Cookiemon pillows make unforgettable gifts!',
-    ctaLabel: 'Customize a Pillow',
-    ctaType: 'open-customizer',
-  },
-  'customizer-section': {
-    text: '✨ Try Checkered or Chaotic mode below! You can even upload your own pet photo or artwork!',
-    ctaLabel: 'Copy Promo COZY15',
-    ctaType: 'copy-code',
-  },
-  'printed-pillows': {
-    text: '🍟 Every Printed Pillow can be bought in 1 click OR customized in 6 sizes & 5 fun layouts!',
-    ctaLabel: 'Open Pillow Studio',
-    ctaType: 'open-customizer',
-  },
-  'oddly-cozy-pillows': {
-    text: '🥐 Our Giant 3D Plushies are overstuffed for maximum couch naps! Stack 2 or 3 for the ultimate setup!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
-  'printed-blankets': {
-    text: '🥤 Our Printed Blankets come in 3 snuggle-ready sizes—try customizing one in Checkered mode!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
-  'oddly-cozy-blankets': {
-    text: '🍳 Wrap yourself inside a giant Sunny-Side Up Egg or Chunky Cloud Knit blanket!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
-  'matching-sets': {
-    text: '🎁 Best Value Alert! Matching Sets give you 2 Printed Pillows + 1 Cozy Blanket and save you $18!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
-  rugs: {
-    text: '🍕 Step out of bed onto a giant Pepperoni Pizza, Donut, or Chocolate Chip Cookie rug!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
-  toys: {
-    text: '🥟 Need desk stress relief? Our slow-rising squishies are super satisfying to squeeze!',
-    ctaLabel: 'Copy COZY15 (15% Off)',
-    ctaType: 'copy-code',
-  },
 };
 
 function getInitialMascotPosition() {
@@ -85,17 +27,83 @@ export default function SmartFloatingMascot({
   onOpenCustomizer,
   onOpenSkyGame,
 }) {
-  // Lifecycle: 'awake' | 'goodbye' | 'poofing' | 'sleeping' | 'waking'
+  const { cms } = useStore();
+  const activePromo = cms?.mascotPromoCode || 'COZY15';
+
+  // Build dynamic section pitches from Admin CMS
+  const sectionPitches = useMemo(() => {
+    const customTexts = {
+      ...DEFAULT_MASCOT_PITCHES,
+      ...(cms?.mascotPitches || {}),
+    };
+
+    return {
+      'category-bubbles-menu': {
+        text: customTexts['category-bubbles-menu'],
+        ctaLabel: 'Featured Items',
+        ctaType: 'scroll-featured',
+      },
+      'winter-collection': {
+        text: customTexts['winter-collection'],
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      'most-popular': {
+        text: customTexts['most-popular'],
+        ctaLabel: 'Customize a Pillow',
+        ctaType: 'open-customizer',
+      },
+      'customizer-section': {
+        text: customTexts['customizer-section'],
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      'printed-pillows': {
+        text: customTexts['printed-pillows'],
+        ctaLabel: 'Open Pillow Studio',
+        ctaType: 'open-customizer',
+      },
+      'oddly-cozy-pillows': {
+        text: customTexts['oddly-cozy-pillows'],
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      'printed-blankets': {
+        text: customTexts['printed-blankets'],
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      'oddly-cozy-blankets': {
+        text: customTexts['oddly-cozy-blankets'],
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      'matching-sets': {
+        text: customTexts['matching-sets'],
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      rugs: {
+        text: customTexts.rugs,
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+      toys: {
+        text: customTexts.toys,
+        ctaLabel: `Copy ${activePromo}`,
+        ctaType: 'copy-code',
+      },
+    };
+  }, [cms?.mascotPitches, activePromo]);
+
   const [phase, setPhase] = useState('awake');
   const [isBlinking, setIsBlinking] = useState(false);
-  const [pitch, setPitch] = useState(SECTION_PITCHES['winter-collection']);
+  const [pitch, setPitch] = useState(sectionPitches['winter-collection']);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  // 10-Quick-Tap Secret Game Detector
   const quickTapTimestampsRef = useRef([]);
   const [antsyMode, setAntsyMode] = useState(false);
 
-  // Draggable Position State
   const [position, setPosition] = useState(getInitialMascotPosition);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef({
@@ -107,7 +115,6 @@ export default function SmartFloatingMascot({
     movedDistance: 0,
   });
 
-  // Sleeping & 3-Tap Wake-Up States
   const [tapCount, setTapCount] = useState(0);
   const [frameIndex, setFrameIndex] = useState(0);
   const [isLaunchingUp, setIsLaunchingUp] = useState(false);
@@ -160,28 +167,27 @@ export default function SmartFloatingMascot({
           mascotCenterX <= rect.right + 25;
 
         if (isOverButtonMenu) {
-          setPitch((prev) =>
-            prev.text !== BUTTON_MENU_PITCH.text ? BUTTON_MENU_PITCH : prev
-          );
+          const menuPitch = sectionPitches['category-bubbles-menu'];
+          setPitch((prev) => (prev.text !== menuPitch.text ? menuPitch : prev));
           return;
         }
       }
 
-      const sectionIds = Object.keys(SECTION_PITCHES);
+      const sectionIds = Object.keys(sectionPitches);
       for (const id of sectionIds) {
         const el = document.getElementById(id);
         if (el) {
           const rect = el.getBoundingClientRect();
           if (mascotCenterY >= rect.top && mascotCenterY <= rect.bottom) {
             setPitch((prev) =>
-              prev.text !== SECTION_PITCHES[id].text ? SECTION_PITCHES[id] : prev
+              prev.text !== sectionPitches[id].text ? sectionPitches[id] : prev
             );
             return;
           }
         }
       }
     },
-    [antsyMode]
+    [antsyMode, sectionPitches]
   );
 
   useEffect(() => {
@@ -200,7 +206,7 @@ export default function SmartFloatingMascot({
       if (antsyMode) return;
       const catBtnEl = e.target.closest('[data-category-button]');
       if (catBtnEl) {
-        setPitch(BUTTON_MENU_PITCH);
+        setPitch(sectionPitches['category-bubbles-menu']);
         return;
       }
 
@@ -214,7 +220,7 @@ export default function SmartFloatingMascot({
             text: isCustom
               ? `👀 Checking out the ${title} ($${price})? Click "Customize this" to preview it in Checkered or Chaotic mode!`
               : `😍 The ${title} ($${price}) is a total crowd-pleaser! Click its photo to see it full-screen!`,
-            ctaLabel: isCustom ? 'Open Customizer' : 'Use Code COZY15',
+            ctaLabel: isCustom ? 'Open Customizer' : `Use Code ${activePromo}`,
             ctaType: isCustom ? 'open-customizer' : 'copy-code',
           });
         }
@@ -227,7 +233,7 @@ export default function SmartFloatingMascot({
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('mouseover', handleMouseOver);
     };
-  }, [phase, currentPage, position.x, position.y, antsyMode, evaluateMascotContext]);
+  }, [phase, currentPage, position.x, position.y, antsyMode, sectionPitches, activePromo, evaluateMascotContext]);
 
   useEffect(() => {
     const handlePointerMove = (e) => {
@@ -258,6 +264,9 @@ export default function SmartFloatingMascot({
     };
   }, []);
 
+  // Respect Operator Master Switch
+  if (cms?.mascotEnabled === false) return null;
+
   const handleMascotPointerDown = (e) => {
     if (phase !== 'awake') return;
     e.preventDefault();
@@ -272,7 +281,6 @@ export default function SmartFloatingMascot({
     setIsDragging(true);
   };
 
-  // Detects 10 rapid taps to unlock Puff's Cloud Dash
   const handleMascotClick = () => {
     if (dragRef.current.movedDistance > 8) return;
     soundFX.playMascotSqueak();
@@ -329,7 +337,7 @@ export default function SmartFloatingMascot({
       onOpenCustomizer?.();
     } else {
       soundFX.playSparkleChime();
-      navigator.clipboard?.writeText('COZY15');
+      navigator.clipboard?.writeText(activePromo);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2500);
     }
@@ -472,7 +480,6 @@ export default function SmartFloatingMascot({
         </div>
       )}
 
-      {/* Intelligent Speech Bubble */}
       <div
         className={`absolute ${
           isNearTop ? 'top-full mt-3' : 'bottom-full mb-3'
@@ -502,7 +509,7 @@ export default function SmartFloatingMascot({
                 {copiedCode ? (
                   <>
                     <Check className="w-3 h-3" />
-                    Copied COZY15!
+                    Copied {activePromo}!
                   </>
                 ) : pitch.ctaType === 'open-sky-game' ? (
                   <>
@@ -547,7 +554,6 @@ export default function SmartFloatingMascot({
         />
       </div>
 
-      {/* Draggable Borderless Mascot Body */}
       <div
         onPointerDown={handleMascotPointerDown}
         onClick={handleMascotClick}

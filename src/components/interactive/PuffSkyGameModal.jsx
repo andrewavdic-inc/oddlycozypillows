@@ -18,22 +18,25 @@ import {
 } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
-const STAR_IMAGES = getStarHealthImages(); // [Star1, Star2, Star3, Star4, Star5, Star6]
-const INTRO_VIDEO_URL = resolveIntroVideo();
+const STAR_IMAGES = getStarHealthImages();
+const DEFAULT_INTRO_VIDEO = resolveIntroVideo();
 const CANVAS_W = 450;
-const CANVAS_H = 1000; // Vertical 9:20 Portrait Aspect Ratio
+const CANVAS_H = 1000;
 
 export default function PuffSkyGameModal({ isOpen, onClose }) {
-  const { highScores, addHighScore } = useStore();
+  const { cms, highScores, addHighScore } = useStore();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  // 'ready' | 'playing' | 'gameover'
+  const rewardTargetScore = Number(cms?.gameRewardScore || 500);
+  const rewardTargetSeconds = Number(cms?.gameRewardSeconds || 45);
+  const rewardPromoCode = cms?.gameRewardCode || 'SKYDASH20';
+
   const [gameState, setGameState] = useState('ready');
   const [showIntroScores, setShowIntroScores] = useState(false);
-  const [videoSrc, setVideoSrc] = useState(INTRO_VIDEO_URL);
+  const [videoSrc, setVideoSrc] = useState(cms?.gameIntroVideo || DEFAULT_INTRO_VIDEO);
 
-  const [health, setHealth] = useState(5); // 5 = Star1.png ... 0 = Star6.png
+  const [health, setHealth] = useState(5);
   const [score, setScore] = useState(0);
   const [survivalSec, setSurvivalSec] = useState(0);
   const [moonbeamActive, setMoonbeamActive] = useState(false);
@@ -76,7 +79,10 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     screenShake: 0,
   });
 
-  // Preload game sprites and Star1-Star6 images
+  useEffect(() => {
+    setVideoSrc(cms?.gameIntroVideo || DEFAULT_INTRO_VIDEO);
+  }, [cms?.gameIntroVideo]);
+
   useEffect(() => {
     const openImg = new Image();
     openImg.src = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
@@ -106,7 +112,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     });
   }, []);
 
-  // Reset to looping intro video when modal opens; stop music when modal closes
   useEffect(() => {
     if (isOpen) {
       setGameState('ready');
@@ -118,7 +123,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     }
   }, [isOpen]);
 
-  // Keyboard listeners for Arrow / WASD flight
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
@@ -223,7 +227,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     soundFX.startGameMusic();
   };
 
-  // Main 60FPS Vertical Flight Loop
   useEffect(() => {
     if (!isOpen || gameState !== 'playing') return;
 
@@ -322,7 +325,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
-      // Spawn Anti-Cozy Hazards from Top of Screen Falling Downward
       g.spawnTimer -= dt;
       if (g.spawnTimer <= 0) {
         g.spawnTimer = Math.max(0.38, (1.05 - g.elapsed * 0.008) / (isMoonbeam ? 1.15 : 1));
@@ -340,7 +342,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
-      // Spawn Cozy Pillows / Squishies from Top to Regain Health
       g.itemTimer -= dt;
       if (g.itemTimer <= 0) {
         g.itemTimer = 4.0 + Math.random() * 2.4;
@@ -361,7 +362,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
-      // Spawn Moonbeam Orb Powerup from Top
       g.moonbeamSpawnTimer -= dt;
       if (g.moonbeamSpawnTimer <= 0) {
         g.moonbeamSpawnTimer = 14.5 + Math.random() * 6;
@@ -376,7 +376,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
-      // Update Entities & Check Collisions
       for (let i = g.entities.length - 1; i >= 0; i--) {
         const ent = g.entities[i];
         ent.y += ent.vy * dt;
@@ -442,7 +441,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 g.running = false;
                 soundFX.stopGameMusic();
                 setGameState('gameover');
-                if (g.score >= 500 || g.elapsed >= 45) {
+                if (g.score >= rewardTargetScore || g.elapsed >= rewardTargetSeconds) {
                   confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
                 }
                 return;
@@ -457,7 +456,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         }
       }
 
-      // ================= RENDER 9:20 VERTICAL CANVAS =================
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -582,7 +580,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         ctx.restore();
       });
 
-      // Draw Puff Banking Left/Right as He Flies Upward
       ctx.save();
       ctx.translate(g.puff.x, g.puff.y);
       const bankAngle = Math.max(-0.35, Math.min(0.35, (g.puff.targetX - g.puff.x) * 0.009));
@@ -662,7 +659,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     return () => {
       if (gameRef.current.rafId) cancelAnimationFrame(gameRef.current.rafId);
     };
-  }, [isOpen, gameState]);
+  }, [isOpen, gameState, rewardTargetScore, rewardTargetSeconds]);
 
   const handleCanvasPointer = (e) => {
     if (gameState !== 'playing' || !canvasRef.current) return;
@@ -700,20 +697,19 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
 
   const starImgIndex = Math.max(0, Math.min(5, 5 - health));
   const currentStarSrc = STAR_IMAGES[starImgIndex];
-  const unlockedDiscount = score >= 500 || survivalSec >= 45;
+  const unlockedDiscount =
+    score >= rewardTargetScore || survivalSec >= rewardTargetSeconds;
 
   return (
     <div
       onClick={onClose}
       className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-lg flex items-center justify-center p-2 sm:p-4 select-none"
     >
-      {/* Borderless Vertical 9:20 Portrait Phone Window */}
       <div
         ref={containerRef}
         onClick={(e) => e.stopPropagation()}
         className="relative h-[92vh] max-h-[920px] aspect-[9/20] w-auto max-w-[96vw] rounded-[2.4rem] overflow-hidden shadow-[0_25px_90px_rgba(0,0,0,0.85)] bg-slate-900 border-0 flex flex-col"
       >
-        {/* 9:20 Portrait HTML5 Game Canvas */}
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
@@ -729,7 +725,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           className="w-full h-full object-cover block touch-none cursor-crosshair"
         />
 
-        {/* Top Portrait HUD Overlay (Shown During Active Gameplay & Game Over) */}
         {gameState !== 'ready' && (
           <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-1.5 pointer-events-none">
             <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg">
@@ -798,7 +793,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* Moonbeam Active Banner */}
         {moonbeamActive && (
           <div className="absolute top-16 inset-x-0 z-20 flex justify-center pointer-events-none">
             <span className="px-3.5 py-1 rounded-full bg-purple-600/90 backdrop-blur-md text-amber-200 text-[11px] font-extrabold shadow-lg animate-bounce">
@@ -807,7 +801,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* ================= OVERLAY 1: LOOPING INTRO VIDEO & "TAP TO START" ================= */}
         {gameState === 'ready' && (
           <div
             onClick={startNewGame}
@@ -815,7 +808,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
             tabIndex={0}
             className="absolute inset-0 z-10 cursor-pointer flex flex-col justify-between p-5 select-none overflow-hidden"
           >
-            {/* Looping Portrait Intro Video */}
             <video
               src={videoSrc}
               autoPlay
@@ -823,16 +815,15 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               muted
               playsInline
               onError={() => {
-                if (videoSrc !== '/video_1.mp4') {
-                  setVideoSrc('/video_1.mp4');
-                } else {
-                  setVideoSrc('/intro.mp4');
+                if (videoSrc !== DEFAULT_INTRO_VIDEO) {
+                  setVideoSrc(DEFAULT_INTRO_VIDEO);
+                } else if (videoSrc !== '/game_intro.mp4') {
+                  setVideoSrc('/game_intro.mp4');
                 }
               }}
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
             />
 
-            {/* Top Bar: Game Title & Top-Right Close / Hi-Score Toggle */}
             <div className="relative z-10 flex items-start justify-between gap-2 pt-1">
               <div className="pointer-events-none">
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-950/55 backdrop-blur-md text-amber-300 text-[10px] font-extrabold uppercase tracking-wider shadow">
@@ -875,7 +866,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               </div>
             </div>
 
-            {/* Optional Collapsible High Score Drawer if Toggled */}
             {showIntroScores && (
               <div
                 onClick={(e) => e.stopPropagation()}
@@ -912,7 +902,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               </div>
             )}
 
-            {/* Bottom Floating "TAP TO START" Prompt (Positioned Over Lower Clouds) */}
             <div className="relative z-10 pb-5 text-center pointer-events-none flex flex-col items-center gap-2">
               <div className="px-8 py-3.5 rounded-full bg-slate-950/60 backdrop-blur-md border-2 border-amber-300/90 shadow-[0_10px_30px_rgba(0,0,0,0.65)] animate-bounce">
                 <span className="font-display text-2xl sm:text-3xl font-bold tracking-wider uppercase text-amber-300 [text-shadow:_0_2px_8px_rgba(0,0,0,0.95)]">
@@ -926,7 +915,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* ================= OVERLAY 2: VERTICAL GAME OVER, REWARD & HI-SCORES ================= */}
         {gameState === 'gameover' && (
           <div className="absolute inset-0 z-10 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-between p-5 pt-16 text-white text-center overflow-y-auto">
             <div className="w-full space-y-3">
@@ -947,16 +935,16 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               {unlockedDiscount ? (
                 <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-left space-y-1.5">
                   <span className="font-extrabold text-emerald-300 text-xs block">
-                    🎉 Pro Flyer Reward Unlocked: 20% OFF!
+                    🎉 Pro Flyer Reward Unlocked!
                   </span>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[11px] text-slate-200">
-                      Code: <strong>SKYDASH20</strong>
+                      Code: <strong>{rewardPromoCode}</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => {
-                        navigator.clipboard?.writeText('SKYDASH20');
+                        navigator.clipboard?.writeText(rewardPromoCode);
                         setCopiedReward(true);
                         setTimeout(() => setCopiedReward(false), 2500);
                       }}
@@ -968,7 +956,9 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-300">
-                  Score <strong>500+ pts</strong> (or survive 45s) to unlock a secret 20% OFF store code!
+                  Score <strong>{rewardTargetScore}+ pts</strong> (or survive{' '}
+                  {rewardTargetSeconds}s) to unlock secret code{' '}
+                  <strong>{rewardPromoCode}</strong>!
                 </p>
               )}
 
@@ -1015,7 +1005,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               </div>
             </div>
 
-            {/* Live High Score Leaderboard */}
             <div className="w-full bg-slate-900/90 rounded-3xl p-3.5 border border-white/15 text-left mt-3">
               <div className="flex items-center justify-center gap-1.5 text-amber-300 font-display font-bold text-xs mb-2">
                 <Trophy className="w-3.5 h-3.5" />

@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Upload, ShoppingBag, Sparkles, Check, LayoutGrid, ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import {
   DISPLAY_MODES,
   FABRIC_BG_COLORS,
 } from '../../config/printifySpecs';
+import { getPublicPrintFiles } from '../../utils/publicManifest';
 import LivePreviewCanvas from './LivePreviewCanvas';
 import { soundFX } from '../../utils/soundEffects';
 
@@ -15,12 +16,29 @@ export default function InlineCustomizerSection({
   const { prints, pillowSizes, blanketSizes } = useStore();
   const canvasRef = useRef(null);
 
+  const allPrints = useMemo(() => {
+    const list = [...prints];
+    const rawFiles = getPublicPrintFiles();
+    rawFiles.forEach((url) => {
+      if (!list.some((p) => p.pngPath === url)) {
+        const fileName = url.split('/').pop().replace(/\.(png|webp|jpg)$/i, '');
+        list.push({
+          id: fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: fileName,
+          pngPath: url,
+          fallbackPath: url,
+        });
+      }
+    });
+    return list;
+  }, [prints]);
+
   const [productType, setProductType] = useState('pillow');
   const [selectedSizeId, setSelectedSizeId] = useState('16x16');
   const [selectedMode, setSelectedMode] = useState('centered');
-  const [selectedPrint, setSelectedPrint] = useState(prints[0]);
+  const [selectedPrint, setSelectedPrint] = useState(allPrints[0]);
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
-  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [uploadedFileName, setUploadedFileName] =State('');
   const [bgColor, setBgColor] = useState('#FFFFFF');
   const [backMode, setBackMode] = useState('match');
   const [side, setSide] = useState('front');
@@ -36,7 +54,7 @@ export default function InlineCustomizerSection({
   const sizeOptions = productType === 'pillow' ? pillowSizes : blanketSizes;
   const currentSize =
     sizeOptions.find((s) => s.id === selectedSizeId) || sizeOptions[0];
-  const activePrint = selectedPrint || prints[0];
+  const activePrint = selectedPrint || allPrints[0];
 
   const handleUserUpload = (e) => {
     const file = e.target.files?.[0];
@@ -50,12 +68,12 @@ export default function InlineCustomizerSection({
 
   const handleAddCustomToCart = () => {
     soundFX.playSparkleChime();
-    let previewDataUrl = activePrint?.fallbackPath;
+    let previewDataUrl = activePrint?.fallbackPath || activePrint?.pngPath;
     if (canvasRef.current) {
       try {
         previewDataUrl = canvasRef.current.toDataURL('image/png');
       } catch {
-        previewDataUrl = uploadedImageUrl || activePrint?.fallbackPath;
+        previewDataUrl = uploadedImageUrl || activePrint?.pngPath;
       }
     }
 
@@ -82,7 +100,6 @@ export default function InlineCustomizerSection({
       className="py-14 sm:py-16 bg-[#FF595E] text-white border-t-4 border-slate-900"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-10">
-        {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto">
           <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-900 text-amber-300 text-xs font-extrabold uppercase tracking-wider mb-3">
             <Sparkles className="w-3.5 h-3.5" />
@@ -96,9 +113,7 @@ export default function InlineCustomizerSection({
           </p>
         </div>
 
-        {/* Embedded Customizer Card */}
         <div className="bg-[#FFFDF9] text-slate-900 rounded-[2rem] border-4 border-slate-900 shadow-[0_10px_0_#1E1E24] p-5 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          {/* Left Column: Live Canvas */}
           <div className="lg:col-span-5 flex flex-col items-center justify-center">
             <LivePreviewCanvas
               canvasRef={canvasRef}
@@ -107,7 +122,7 @@ export default function InlineCustomizerSection({
               bgColor={bgColor}
               mode={selectedMode}
               printSourceUrl={uploadedImageUrl || activePrint?.pngPath}
-              fallbackUrl={activePrint?.fallbackPath}
+              fallbackUrl={activePrint?.fallbackPath || activePrint?.pngPath}
               chaosSeed={chaosSeed}
               onReshuffleChaos={() => setChaosSeed(Math.random() * 1000)}
               customConfig={customConfig}
@@ -118,9 +133,7 @@ export default function InlineCustomizerSection({
             />
           </div>
 
-          {/* Right Column: Interactive Controls */}
           <div className="lg:col-span-7 space-y-5">
-            {/* Switch Product Type */}
             <div className="flex items-center gap-3">
               {['pillow', 'blanket'].map((t) => (
                 <button
@@ -142,7 +155,6 @@ export default function InlineCustomizerSection({
               ))}
             </div>
 
-            {/* 1. Select Size */}
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2">
                 1. Select Size ({sizeOptions.length} Sizes Available)
@@ -174,7 +186,6 @@ export default function InlineCustomizerSection({
               </div>
             </div>
 
-            {/* 2. Choose Display Mode */}
             <div>
               <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2">
                 2. Choose Graphic Display Mode
@@ -201,7 +212,6 @@ export default function InlineCustomizerSection({
               </div>
             </div>
 
-            {/* 3. Choose Transparent PNG or Upload */}
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <label className="text-xs font-extrabold uppercase tracking-wider text-slate-600">
@@ -210,16 +220,23 @@ export default function InlineCustomizerSection({
                 <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow">
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Your Own PNG/JPG</span>
-                  <input type="file" accept="image/*" onChange={handleUserUpload} className="hidden" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUserUpload}
+                    className="hidden"
+                  />
                 </label>
               </div>
 
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-36 overflow-y-auto p-1">
-                {prints.map((p) => {
-                  const isSelected = !uploadedImageUrl && activePrint?.id === p.id;
+                {allPrints.map((p) => {
+                  const isSelected =
+                    !uploadedImageUrl &&
+                    (activePrint?.pngPath === p.pngPath || activePrint?.id === p.id);
                   return (
                     <button
-                      key={p.id}
+                      key={p.id + p.pngPath}
                       type="button"
                       onClick={() => {
                         soundFX.playPop();
@@ -236,7 +253,7 @@ export default function InlineCustomizerSection({
                       <img
                         src={p.pngPath}
                         onError={(e) => {
-                          e.currentTarget.src = p.fallbackPath;
+                          if (p.fallbackPath) e.currentTarget.src = p.fallbackPath;
                         }}
                         alt={p.name}
                         className="w-10 h-10 object-contain"
@@ -250,7 +267,6 @@ export default function InlineCustomizerSection({
               </div>
             </div>
 
-            {/* 4. Background Color & Back Side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 mb-2">
@@ -265,7 +281,9 @@ export default function InlineCustomizerSection({
                       title={col.name}
                       style={{ backgroundColor: col.hex }}
                       className={`w-7 h-7 rounded-full border-2 border-slate-900 flex items-center justify-center ${
-                        bgColor === col.hex ? 'ring-2 ring-offset-2 ring-rose-500 scale-110' : ''
+                        bgColor === col.hex
+                          ? 'ring-2 ring-offset-2 ring-rose-500 scale-110'
+                          : ''
                       }`}
                     >
                       {bgColor === col.hex && (
@@ -306,7 +324,6 @@ export default function InlineCustomizerSection({
               </div>
             </div>
 
-            {/* Add to Cart Button */}
             <button
               type="button"
               onClick={handleAddCustomToCart}
@@ -319,7 +336,6 @@ export default function InlineCustomizerSection({
           </div>
         </div>
 
-        {/* Bottom CTA to Discover All 7 Categories */}
         <div className="pt-4 text-center">
           <button
             type="button"
