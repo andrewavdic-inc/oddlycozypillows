@@ -1,10 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Upload, ShoppingBag, Sparkles, Check, LayoutGrid, ArrowRight } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import {
-  DISPLAY_MODES,
-  FABRIC_BG_COLORS,
-} from '../../config/printifySpecs';
+import { DISPLAY_MODES, FABRIC_BG_COLORS } from '../../config/printifySpecs';
 import { getPublicPrintFiles } from '../../utils/publicManifest';
 import LivePreviewCanvas from './LivePreviewCanvas';
 import { soundFX } from '../../utils/soundEffects';
@@ -13,13 +10,12 @@ export default function InlineCustomizerSection({
   onAddToCart,
   onExploreAllCategories,
 }) {
-  const { prints, pillowSizes, blanketSizes } = useStore();
+  const { prints: storePrints, pillowSizes, blanketSizes } = useStore();
   const canvasRef = useRef(null);
 
-  const allPrints = useMemo(() => {
-    const list = [...prints];
-    const rawFiles = getPublicPrintFiles();
-    rawFiles.forEach((url) => {
+  const prints = useMemo(() => {
+    const list = [...storePrints];
+    getPublicPrintFiles().forEach((url) => {
       if (!list.some((p) => p.pngPath === url)) {
         const fileName = url.split('/').pop().replace(/\.(png|webp|jpg)$/i, '');
         list.push({
@@ -31,14 +27,14 @@ export default function InlineCustomizerSection({
       }
     });
     return list;
-  }, [prints]);
+  }, [storePrints]);
 
   const [productType, setProductType] = useState('pillow');
   const [selectedSizeId, setSelectedSizeId] = useState('16x16');
   const [selectedMode, setSelectedMode] = useState('centered');
-  const [selectedPrint, setSelectedPrint] = useState(allPrints[0]);
+  const [selectedPrint, setSelectedPrint] = useState(prints[0]);
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
-  const [uploadedFileName, setUploadedFileName] =State('');
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const [bgColor, setBgColor] = useState('#FFFFFF');
   const [backMode, setBackMode] = useState('match');
   const [side, setSide] = useState('front');
@@ -54,7 +50,7 @@ export default function InlineCustomizerSection({
   const sizeOptions = productType === 'pillow' ? pillowSizes : blanketSizes;
   const currentSize =
     sizeOptions.find((s) => s.id === selectedSizeId) || sizeOptions[0];
-  const activePrint = selectedPrint || allPrints[0];
+  const activePrint = selectedPrint || prints[0];
 
   const handleUserUpload = (e) => {
     const file = e.target.files?.[0];
@@ -220,17 +216,12 @@ export default function InlineCustomizerSection({
                 <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow">
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Your Own PNG/JPG</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleUserUpload}
-                    className="hidden"
-                  />
+                  <input type="file" accept="image/*" onChange={handleUserUpload} className="hidden" />
                 </label>
               </div>
 
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-36 overflow-y-auto p-1">
-                {allPrints.map((p) => {
+                {prints.map((p) => {
                   const isSelected =
                     !uploadedImageUrl &&
                     (activePrint?.pngPath === p.pngPath || activePrint?.id === p.id);
@@ -281,9 +272,7 @@ export default function InlineCustomizerSection({
                       title={col.name}
                       style={{ backgroundColor: col.hex }}
                       className={`w-7 h-7 rounded-full border-2 border-slate-900 flex items-center justify-center ${
-                        bgColor === col.hex
-                          ? 'ring-2 ring-offset-2 ring-rose-500 scale-110'
-                          : ''
+                        bgColor === col.hex ? 'ring-2 ring-offset-2 ring-rose-500 scale-110' : ''
                       }`}
                     >
                       {bgColor === col.hex && (

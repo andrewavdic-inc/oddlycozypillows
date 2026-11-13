@@ -19,7 +19,7 @@ import {
 import { soundFX } from '../../utils/soundEffects';
 
 const STAR_IMAGES = getStarHealthImages();
-const DEFAULT_INTRO_VIDEO = resolveIntroVideo();
+const INTRO_VIDEO_URL = resolveIntroVideo();
 const CANVAS_W = 450;
 const CANVAS_H = 1000;
 
@@ -28,13 +28,13 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  const rewardTargetScore = Number(cms?.gameRewardScore || 500);
-  const rewardTargetSeconds = Number(cms?.gameRewardSeconds || 45);
+  const targetRewardScore = Number(cms?.gameRewardScore || 500);
+  const targetRewardSec = Number(cms?.gameRewardSeconds || 45);
   const rewardPromoCode = cms?.gameRewardCode || 'SKYDASH20';
 
   const [gameState, setGameState] = useState('ready');
   const [showIntroScores, setShowIntroScores] = useState(false);
-  const [videoSrc, setVideoSrc] = useState(cms?.gameIntroVideo || DEFAULT_INTRO_VIDEO);
+  const [videoSrc, setVideoSrc] = useState(cms?.gameIntroVideo || INTRO_VIDEO_URL);
 
   const [health, setHealth] = useState(5);
   const [score, setScore] = useState(0);
@@ -45,6 +45,12 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
   const [playerName, setPlayerName] = useState('');
   const [scoreSaved, setScoreSaved] = useState(false);
   const [copiedReward, setCopiedReward] = useState(false);
+
+  useEffect(() => {
+    if (cms?.gameIntroVideo) {
+      setVideoSrc(cms.gameIntroVideo);
+    }
+  }, [cms?.gameIntroVideo]);
 
   const spritesRef = useRef({
     puffOpen: null,
@@ -78,10 +84,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     moonbeamSpawnTimer: 0,
     screenShake: 0,
   });
-
-  useEffect(() => {
-    setVideoSrc(cms?.gameIntroVideo || DEFAULT_INTRO_VIDEO);
-  }, [cms?.gameIntroVideo]);
 
   useEffect(() => {
     const openImg = new Image();
@@ -441,7 +443,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 g.running = false;
                 soundFX.stopGameMusic();
                 setGameState('gameover');
-                if (g.score >= rewardTargetScore || g.elapsed >= rewardTargetSeconds) {
+                if (g.score >= targetRewardScore || g.elapsed >= targetRewardSec) {
                   confetti({ particleCount: 80, spread: 70, origin: { y: 0.5 } });
                 }
                 return;
@@ -659,7 +661,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     return () => {
       if (gameRef.current.rafId) cancelAnimationFrame(gameRef.current.rafId);
     };
-  }, [isOpen, gameState, rewardTargetScore, rewardTargetSeconds]);
+  }, [isOpen, gameState, targetRewardScore, targetRewardSec]);
 
   const handleCanvasPointer = (e) => {
     if (gameState !== 'playing' || !canvasRef.current) return;
@@ -698,7 +700,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
   const starImgIndex = Math.max(0, Math.min(5, 5 - health));
   const currentStarSrc = STAR_IMAGES[starImgIndex];
   const unlockedDiscount =
-    score >= rewardTargetScore || survivalSec >= rewardTargetSeconds;
+    score >= targetRewardScore || survivalSec >= targetRewardSec;
 
   return (
     <div
@@ -815,8 +817,8 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
               muted
               playsInline
               onError={() => {
-                if (videoSrc !== DEFAULT_INTRO_VIDEO) {
-                  setVideoSrc(DEFAULT_INTRO_VIDEO);
+                if (videoSrc !== INTRO_VIDEO_URL) {
+                  setVideoSrc(INTRO_VIDEO_URL);
                 } else if (videoSrc !== '/game_intro.mp4') {
                   setVideoSrc('/game_intro.mp4');
                 }
@@ -846,7 +848,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                     setShowIntroScores((prev) => !prev);
                   }}
                   className="px-3 py-1.5 rounded-full bg-slate-950/65 hover:bg-slate-900 text-amber-300 text-xs font-extrabold backdrop-blur-md flex items-center gap-1 shadow-lg transition-transform hover:scale-105"
-                  title="View High Scores"
                 >
                   <Trophy className="w-3.5 h-3.5" />
                   <span>Hi-Scores</span>
@@ -859,7 +860,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                     onClose();
                   }}
                   className="w-8 h-8 rounded-full bg-slate-950/65 hover:bg-rose-500 text-white backdrop-blur-md flex items-center justify-center transition-colors shadow-lg"
-                  title="Close Game"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -956,9 +956,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-300">
-                  Score <strong>{rewardTargetScore}+ pts</strong> (or survive{' '}
-                  {rewardTargetSeconds}s) to unlock secret code{' '}
-                  <strong>{rewardPromoCode}</strong>!
+                  Score <strong>{targetRewardScore}+ pts</strong> (or survive {targetRewardSec}s) to unlock a secret store reward code!
                 </p>
               )}
 

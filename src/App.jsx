@@ -39,7 +39,6 @@ export default function App() {
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
 
-  // Sync default weather when CMS loads from Firebase
   useEffect(() => {
     if (cms?.defaultWeather) {
       setActiveWeather(cms.defaultWeather);
@@ -147,7 +146,7 @@ export default function App() {
 
   return (
     <div id="top" className="min-h-screen flex flex-col relative">
-      {cms.announcementEnabled && (
+      {cms?.announcementEnabled && (
         <div
           style={{ backgroundColor: cms.announcementBg || '#1E1E24' }}
           className="text-amber-300 text-center py-2 px-4 text-xs font-extrabold tracking-wide border-b-2 border-slate-900"
@@ -176,9 +175,9 @@ export default function App() {
           <FeaturedGridSection
             id="winter-collection"
             theme="winter"
-            title={cms.winterTitle || 'Winter & Holiday Collection'}
+            title={cms?.winterTitle || 'Winter & Holiday Collection'}
             subtitle={
-              cms.winterSubtitle ||
+              cms?.winterSubtitle ||
               'Limited-edition cozy bundles, chunky throws, and gift-ready pillows for everyone on your list.'
             }
             products={winterProducts}
@@ -197,9 +196,9 @@ export default function App() {
           <FeaturedGridSection
             id="most-popular"
             theme="popular"
-            title={cms.popularTitle || 'Most Popular Favorites'}
+            title={cms?.popularTitle || 'Most Popular Favorites'}
             subtitle={
-              cms.popularSubtitle ||
+              cms?.popularSubtitle ||
               'Our 8 highest-rated pillows, plushies, and cozy room essentials.'
             }
             products={popularProducts}
