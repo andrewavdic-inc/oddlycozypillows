@@ -1,17 +1,53 @@
 import React, { useState } from 'react';
-import { Plus, Upload, Trash2, Edit3, Check, X, Snowflake, Flame } from 'lucide-react';
+import {
+  Plus,
+  Upload,
+  Trash2,
+  Edit3,
+  Check,
+  X,
+  Snowflake,
+  Flame,
+  Star,
+  Wand2,
+  Image as ImageIcon,
+} from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { uploadImageFile } from '../../../services/firebaseClient';
-import { getFolderImages } from '../../../utils/publicManifest';
+import { getFolderImages, getPublicPrintFiles } from '../../../utils/publicManifest';
 
 export default function InventoryManagerTab() {
-  const { products, categories, saveProduct, deleteProduct } = useStore();
+  const {
+    products,
+    categories,
+    prints,
+    savePrintsList,
+    saveProduct,
+    deleteProduct,
+  } = useStore();
+
   const [filterCat, setFilterCat] = useState('all');
   const [editingItem, setEditingItem] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingPrint, setIsUploadingPrint] = useState(false);
 
   const winterCount = products.filter((p) => p.isWinter).length;
   const popularCount = products.filter((p) => p.isPopular).length;
+
+  // Combine store prints with any raw files discovered in public/prints/
+  const publicPrintUrls = getPublicPrintFiles();
+  const allAvailablePrints = [...prints];
+  publicPrintUrls.forEach((url) => {
+    if (!allAvailablePrints.some((p) => p.pngPath === url)) {
+      const fileName = url.split('/').pop().replace(/\.(png|webp|jpg)$/i, '');
+      allAvailablePrints.push({
+        id: fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        name: fileName,
+        pngPath: url,
+        fallbackPath: url,
+      });
+    }
+  });
 
   const visibleProducts =
     filterCat === 'all'
@@ -22,11 +58,31 @@ export default function InventoryManagerTab() {
       ? products.filter((p) => p.isPopular)
       : products.filter((p) => p.categoryId === filterCat);
 
+  const openEditModal = (item) => {
+    const existingGallery =
+      Array.isArray(item.images) && item.images.length > 0
+        ? item.images
+        : item.image
+        ? [item.image]
+        : [];
+
+    setEditingItem({
+      ...item,
+      image: item.image || existingGallery[0] || '/icons/printed-pillow.svg',
+      images: existingGallery,
+      printId: item.printId || '',
+      assignedPrintUrl: item.assignedPrintUrl || '',
+    });
+  };
+
   const handleStartAdd = () => {
     const defaultCat =
       filterCat === 'all' || filterCat === 'winter' || filterCat === 'popular'
         ? 'printed-pillows'
         : filterCat;
+    const isCustomCat =
+      defaultCat === 'printed-pillows' || defaultCat === 'printed-blankets';
+
     setEditingItem({
       id: `prod-${Date.now()}`,
       categoryId: defaultCat,
@@ -37,41 +93,136 @@ export default function InventoryManagerTab() {
       badge: 'New Arrival',
       description: '',
       image: '/icons/printed-pillow.svg',
-      customizable: defaultCat === 'printed-pillows' || defaultCat === 'printed-blankets',
+      images: [],
+      printId: allAvailablePrints[0]?.id || '',
+      assignedPrintUrl: allAvailablePrints[0]?.pngPath || '',
+      customizable: isCustomCat,
       productType: defaultCat === 'printed-blankets' ? 'blanket' : 'pillow',
       inStock: true,
       isWinter: filterCat === 'winter',
       isPopular: filterCat === 'popular',
-      fulfillmentRoute:
-        defaultCat === 'printed-pillows' || defaultCat === 'printed-blankets'
-          ? 'Printify POD'
-          : 'Plush/Blanket Supplier',
+      fulfillmentRoute: isCustomCat ? 'Printify POD' : 'Plush/Blanket Supplier',
     });
   };
 
-  const handleFileButtonUpload = async (e) => {
+  // Upload 1 or multiple Product Mockup Photos
+  const handleProductPhotosUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !editingItem) return;
+    setIsUploadingPhoto(true);
+    try {
+      const uploadedUrls = [];
+      for (const file of files) {
+        const url = await uploadImageFile(file, `inventory/${editingItem.categoryId}`);
+        uploadedUrls.push(url);
+      }
+      setEditingItem((prev) => {
+        const nextImages = [...(prev.images || []), ...uploadedUrls];
+        const nextPrimary =
+          !prev.image || prev.image.includes('/icons/')
+            ? uploadedUrls[0]
+            : prev.image;
+        return {
+          ...prev,
+          image: nextPrimary,
+          fallbackImage: nextPrimary,
+          images: nextImages,
+        };
+      });
+    } catch (err) {
+      alert('Could not upload product photo. Please try another PNG/JPG/WebP.');
+    } finally {
+      setIsUploadingPhoto(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleAddFolderPhotoToGallery = (folderUrl) => {
+    setEditingItem((prev) => {
+      const exists = (prev.images || []).includes(folderUrl);
+      const nextImages = exists ? prev.images : [...(prev.images || []), folderUrl];
+      return {
+        ...prev,
+        image: folderUrl,
+        fallbackImage: folderUrl,
+        images: nextImages,
+      };
+    });
+  };
+
+  const handleSetPrimaryPhoto = (photoUrl) => {
+    setEditingItem((prev) => ({
+      ...prev,
+      image: photoUrl,
+      fallbackImage: photoUrl,
+    }));
+  };
+
+  const handleRemovePhotoFromGallery = (photoUrl) => {
+    setEditingItem((prev) => {
+      const nextImages = (prev.images || []).filter((img) => img !== photoUrl);
+      const nextPrimary =
+        prev.image === photoUrl
+          ? nextImages[0] || '/icons/printed-pillow.svg'
+          : prev.image;
+      return {
+        ...prev,
+        image: nextPrimary,
+        fallbackImage: nextPrimary,
+        images: nextImages,
+      };
+    });
+  };
+
+  // Upload a new Transparent PNG Print directly and assign it to this product
+  const handleUploadNewTransparentPrint = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !editingItem) return;
-    setIsUploading(true);
+    setIsUploadingPrint(true);
     try {
-      const uploadedUrl = await uploadImageFile(file, `inventory/${editingItem.categoryId}`);
+      const uploadedUrl = await uploadImageFile(file, 'prints');
+      const cleanName = file.name.replace(/\.(png|webp|jpg|jpeg)$/i, '');
+      const newPrintObj = {
+        id: `print-${Date.now()}`,
+        name: cleanName,
+        pngPath: uploadedUrl,
+        fallbackPath: uploadedUrl,
+      };
+      savePrintsList([newPrintObj, ...prints]);
       setEditingItem((prev) => ({
         ...prev,
-        image: uploadedUrl,
-        fallbackImage: uploadedUrl,
+        customizable: true,
+        printId: newPrintObj.id,
+        assignedPrintUrl: newPrintObj.pngPath,
       }));
     } catch (err) {
-      alert('Could not process image file. Please try another PNG/JPG.');
+      alert('Could not upload transparent PNG print.');
     } finally {
-      setIsUploading(false);
+      setIsUploadingPrint(false);
+      e.target.value = '';
     }
   };
 
   const handleSaveForm = (e) => {
     e.preventDefault();
     if (!editingItem.name) return;
+
+    const finalGallery =
+      editingItem.images?.length > 0
+        ? editingItem.images
+        : editingItem.image
+        ? [editingItem.image]
+        : [];
+
+    const primaryImage = finalGallery.includes(editingItem.image)
+      ? editingItem.image
+      : finalGallery[0] || editingItem.image;
+
     saveProduct({
       ...editingItem,
+      image: primaryImage,
+      fallbackImage: primaryImage,
+      images: finalGallery,
       price: Number(editingItem.price),
       unitCost: Number(editingItem.unitCost),
     });
@@ -95,9 +246,11 @@ export default function InventoryManagerTab() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl font-bold">Inventory & Featured Collections</h2>
+          <h2 className="font-display text-3xl font-bold">
+            Inventory & Customizer Print Links
+          </h2>
           <p className="text-sm text-slate-600">
-            Toggle which 8 items appear in your front-page <strong>Winter Collection</strong> and <strong>Most Popular</strong> sections!
+            Manage product photos, pick your <strong>Primary Photo</strong>, and assign the exact <strong>Transparent PNG Print</strong> for the customizer!
           </p>
         </div>
 
@@ -111,7 +264,7 @@ export default function InventoryManagerTab() {
         </button>
       </div>
 
-      {/* Filter Pills including Winter & Most Popular Curation Filters */}
+      {/* Category & Featured Filter Pills */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -150,9 +303,15 @@ export default function InventoryManagerTab() {
             key={cat.id}
             type="button"
             onClick={() => setFilterCat(cat.id)}
-            style={filterCat === cat.id ? { backgroundColor: cat.color, color: cat.textColor } : {}}
+            style={
+              filterCat === cat.id
+                ? { backgroundColor: cat.color, color: cat.textColor }
+                : {}
+            }
             className={`px-3.5 py-2 rounded-full text-xs font-extrabold border-2 border-slate-900 ${
-              filterCat === cat.id ? 'shadow-[0_2px_0_#1E1E24]' : 'bg-white text-slate-700'
+              filterCat === cat.id
+                ? 'shadow-[0_2px_0_#1E1E24]'
+                : 'bg-white text-slate-700'
             }`}
           >
             {cat.shortName} ({products.filter((p) => p.categoryId === cat.id).length})
@@ -160,76 +319,272 @@ export default function InventoryManagerTab() {
         ))}
       </div>
 
-      {/* Add / Edit Product Modal */}
+      {/* ================= UPGRADED ADD / EDIT PRODUCT MODAL ================= */}
       {editingItem && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           <form
             onSubmit={handleSaveForm}
-            className="bg-white rounded-3xl border-4 border-slate-900 shadow-[0_12px_0_#1E1E24] max-w-2xl w-full p-6 sm:p-8 space-y-5 my-auto max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-3xl border-4 border-slate-900 shadow-[0_12px_0_#1E1E24] max-w-3xl w-full p-5 sm:p-8 space-y-6 my-auto max-h-[92vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b-2 border-slate-200 pb-3">
-              <h3 className="font-display text-2xl font-bold">
-                {products.some((p) => p.id === editingItem.id) ? 'Edit Product' : 'Add New Product'}
-              </h3>
+              <div>
+                <h3 className="font-display text-2xl font-bold">
+                  {products.some((p) => p.id === editingItem.id)
+                    ? `Edit Product: ${editingItem.name}`
+                    : 'Add New Product'}
+                </h3>
+                <p className="text-xs text-slate-500 font-semibold">
+                  Upload product photos, select your Primary Photo, and link the transparent PNG used for customization.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingItem(null)}
-                className="p-2 rounded-full bg-slate-100 border-2 border-slate-900"
+                className="p-2 rounded-full bg-slate-100 hover:bg-rose-100 border-2 border-slate-900"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-slate-900 flex flex-col sm:flex-row items-center gap-5">
-              <img
-                src={editingItem.image}
-                alt="Preview"
-                className="w-28 h-28 rounded-2xl object-cover bg-white border-2 border-slate-900 shrink-0 shadow"
-              />
-              <div className="space-y-2.5 flex-1 text-center sm:text-left">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-600 block">
-                  Product Photo
-                </span>
+            {/* SECTION 1: PRODUCT PHOTOS & PRIMARY PHOTO SELECTOR */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-amber-50/90 border-2 border-slate-900 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-[#FF595E]" />
+                    1. Product Photos & Primary Photo Selector
+                  </span>
+                  <span className="text-[11px] text-slate-600 block">
+                    Click any photo below to make it the <strong>★ Primary Photo</strong> shown on the storefront.
+                  </span>
+                </div>
 
-                <label className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#1982C4] hover:bg-[#146ca3] text-white font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] cursor-pointer">
+                <label className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#1982C4] hover:bg-[#146ca3] text-white font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] cursor-pointer">
                   <Upload className="w-4 h-4" />
                   <span>
-                    {isUploading ? 'Uploading & Optimizing...' : 'Upload Image from Computer'}
+                    {isUploadingPhoto ? 'Uploading...' : 'Upload Product Photo(s)'}
                   </span>
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={handleFileButtonUpload}
+                    multiple
+                    onChange={handleProductPhotosUpload}
                     className="hidden"
                   />
                 </label>
+              </div>
 
-                {localFolderFiles.length > 0 && (
-                  <div className="pt-1">
-                    <span className="text-[11px] font-bold text-slate-500 block mb-1">
-                      Or pick from public folder:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
-                      {localFolderFiles.map((fUrl) => (
+              {/* Current Product Photo Gallery */}
+              {editingItem.images && editingItem.images.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {editingItem.images.map((imgUrl, idx) => {
+                    const isPrimary = editingItem.image === imgUrl;
+                    return (
+                      <div
+                        key={`${imgUrl}-${idx}`}
+                        onClick={() => handleSetPrimaryPhoto(imgUrl)}
+                        className={`relative group rounded-2xl overflow-hidden border-3 cursor-pointer transition-all bg-white ${
+                          isPrimary
+                            ? 'border-[#FF595E] ring-4 ring-[#FF595E]/30 shadow-md'
+                            : 'border-slate-300 hover:border-slate-900'
+                        }`}
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`Product view ${idx + 1}`}
+                          className="w-full h-28 object-cover"
+                        />
+
+                        {/* Primary Badge */}
+                        <div
+                          className={`px-2 py-1 text-[10px] font-extrabold flex items-center justify-center gap-1 ${
+                            isPrimary
+                              ? 'bg-[#FF595E] text-white'
+                              : 'bg-slate-900/80 text-slate-200 group-hover:bg-slate-900'
+                          }`}
+                        >
+                          <Star
+                            className={`w-3 h-3 ${
+                              isPrimary ? 'fill-amber-300 text-amber-300' : ''
+                            }`}
+                          />
+                          <span>{isPrimary ? 'Primary Photo' : 'Set as Primary'}</span>
+                        </div>
+
+                        {/* Remove Photo Button */}
+                        {editingItem.images.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemovePhotoFromGallery(imgUrl);
+                            }}
+                            title="Remove photo"
+                            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center opacity-85 hover:opacity-100 shadow"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">
+                  No photos added yet. Upload a photo or pick one from your public folder below.
+                </p>
+              )}
+
+              {/* Quick Pick from Public Category Folder */}
+              {localFolderFiles.length > 0 && (
+                <div className="pt-2 border-t border-amber-200/80">
+                  <span className="text-[11px] font-bold text-slate-600 block mb-1.5">
+                    Or click to add photos from <code className="font-mono">public/images/{folderMap[editingItem.categoryId]}</code>:
+                  </span>
+                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1">
+                    {localFolderFiles.map((fUrl) => {
+                      const isPrimary = editingItem.image === fUrl;
+                      return (
                         <button
                           key={fUrl}
                           type="button"
-                          onClick={() =>
-                            setEditingItem((prev) => ({ ...prev, image: fUrl, fallbackImage: fUrl }))
-                          }
-                          className={`w-10 h-10 rounded-lg border-2 overflow-hidden ${
-                            editingItem.image === fUrl ? 'border-rose-500 scale-105' : 'border-slate-300'
+                          onClick={() => handleAddFolderPhotoToGallery(fUrl)}
+                          className={`w-12 h-12 rounded-xl border-2 overflow-hidden shrink-0 transition-transform ${
+                            isPrimary
+                              ? 'border-[#FF595E] scale-105 ring-2 ring-[#FF595E]'
+                              : 'border-slate-300 hover:border-slate-900'
                           }`}
                         >
                           <img src={fUrl} alt="" className="w-full h-full object-cover" />
                         </button>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
+            {/* SECTION 2: ASSIGN TRANSPARENT PNG PRINT FOR "CUSTOMIZE THIS" */}
+            <div className="p-4 sm:p-5 rounded-3xl bg-indigo-50/90 border-2 border-slate-900 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <label className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-indigo-950 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editingItem.customizable)}
+                      onChange={(e) =>
+                        setEditingItem((p) => ({ ...p, customizable: e.target.checked }))
+                      }
+                      className="w-4 h-4 accent-indigo-600"
+                    />
+                    <Wand2 className="w-4 h-4 text-indigo-600" />
+                    <span>
+                      2. Enable "Customize this" Button & Assign Transparent PNG Print
+                    </span>
+                  </label>
+                  <span className="text-[11px] text-slate-600 block mt-0.5">
+                    Select the transparent PNG graphic used to make this item so clicking <strong>"Customize this"</strong> loads the exact print!
+                  </span>
+                </div>
+
+                <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] cursor-pointer">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>
+                    {isUploadingPrint ? 'Uploading PNG...' : 'Upload New Transparent PNG'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/webp"
+                    onChange={handleUploadNewTransparentPrint}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {editingItem.customizable && (
+                <div className="space-y-3">
+                  {/* Currently Assigned Print Preview */}
+                  <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border-2 border-slate-900">
+                    <div className="w-14 h-14 rounded-xl bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:8px_8px] border border-slate-300 flex items-center justify-center shrink-0 p-1">
+                      {editingItem.assignedPrintUrl || editingItem.printId ? (
+                        <img
+                          src={
+                            editingItem.assignedPrintUrl ||
+                            allAvailablePrints.find((p) => p.id === editingItem.printId)
+                              ?.pngPath ||
+                            allAvailablePrints[0]?.pngPath
+                          }
+                          alt="Assigned Print"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-bold">None</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 block">
+                        Currently Assigned Customizer Graphic:
+                      </span>
+                      <p className="font-display font-bold text-sm text-slate-900 truncate">
+                        {allAvailablePrints.find(
+                          (p) =>
+                            p.pngPath === editingItem.assignedPrintUrl ||
+                            p.id === editingItem.printId
+                        )?.name ||
+                          editingItem.printId ||
+                          'Click a transparent PNG below to assign it'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Visual Grid of All Transparent PNG Prints */}
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-700 block mb-1.5">
+                      Click any Transparent PNG Print below to assign it to this product:
+                    </span>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-44 overflow-y-auto p-1.5 bg-white/80 rounded-2xl border border-indigo-200">
+                      {allAvailablePrints.map((p) => {
+                        const isAssigned =
+                          editingItem.assignedPrintUrl === p.pngPath ||
+                          (editingItem.printId && editingItem.printId === p.id);
+                        return (
+                          <button
+                            key={p.id + p.pngPath}
+                            type="button"
+                            onClick={() =>
+                              setEditingItem((prev) => ({
+                                ...prev,
+                                printId: p.id,
+                                assignedPrintUrl: p.pngPath,
+                              }))
+                            }
+                            className={`p-2 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${
+                              isAssigned
+                                ? 'bg-amber-200 border-slate-900 ring-2 ring-indigo-600 scale-105 shadow'
+                                : 'bg-white border-slate-200 hover:border-slate-900'
+                            }`}
+                          >
+                            <img
+                              src={p.pngPath}
+                              onError={(e) => {
+                                if (p.fallbackPath) e.currentTarget.src = p.fallbackPath;
+                              }}
+                              alt={p.name}
+                              className="w-11 h-11 object-contain"
+                            />
+                            <span className="text-[10px] font-bold truncate w-full text-center mt-1 text-slate-800">
+                              {p.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 3: PRODUCT DETAILS & PRICING */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-extrabold uppercase text-slate-600 mb-1">
@@ -242,7 +597,10 @@ export default function InventoryManagerTab() {
                     setEditingItem((prev) => ({
                       ...prev,
                       categoryId: catId,
-                      customizable: catId === 'printed-pillows' || catId === 'printed-blankets',
+                      customizable:
+                        catId === 'printed-pillows' || catId === 'printed-blankets'
+                          ? true
+                          : prev.customizable,
                       productType: catId === 'printed-blankets' ? 'blanket' : 'pillow',
                     }));
                   }}
@@ -263,7 +621,9 @@ export default function InventoryManagerTab() {
                 <input
                   type="text"
                   value={editingItem.badge || ''}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, badge: e.target.value }))}
+                  onChange={(e) =>
+                    setEditingItem((p) => ({ ...p, badge: e.target.value }))
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm font-semibold"
                 />
               </div>
@@ -276,7 +636,9 @@ export default function InventoryManagerTab() {
                   type="text"
                   required
                   value={editingItem.name}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, name: e.target.value }))}
+                  onChange={(e) =>
+                    setEditingItem((p) => ({ ...p, name: e.target.value }))
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm font-bold"
                 />
               </div>
@@ -290,7 +652,9 @@ export default function InventoryManagerTab() {
                   step="0.01"
                   required
                   value={editingItem.price}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, price: e.target.value }))}
+                  onChange={(e) =>
+                    setEditingItem((p) => ({ ...p, price: e.target.value }))
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm font-bold"
                 />
               </div>
@@ -303,31 +667,37 @@ export default function InventoryManagerTab() {
                   type="number"
                   step="0.01"
                   value={editingItem.unitCost}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, unitCost: e.target.value }))}
+                  onChange={(e) =>
+                    setEditingItem((p) => ({ ...p, unitCost: e.target.value }))
+                  }
                   className="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-sm font-bold"
                 />
               </div>
 
               <div className="sm:col-span-2">
                 <label className="block text-xs font-extrabold uppercase text-slate-600 mb-1">
-                  Description
+                  Description (Shown in Expanded Full-Photo View)
                 </label>
                 <textarea
                   rows={2}
-                  value={editingItem.description}
-                  onChange={(e) => setEditingItem((p) => ({ ...p, description: e.target.value }))}
+                  value={editingItem.description || ''}
+                  onChange={(e) =>
+                    setEditingItem((p) => ({ ...p, description: e.target.value }))
+                  }
                   className="w-full px-3.5 py-2 rounded-xl border-2 border-slate-900 text-sm"
                 />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t-2 border-slate-200">
               <div className="flex flex-wrap items-center gap-4">
                 <label className="inline-flex items-center gap-1.5 text-xs font-extrabold cursor-pointer">
                   <input
                     type="checkbox"
                     checked={editingItem.inStock}
-                    onChange={(e) => setEditingItem((p) => ({ ...p, inStock: e.target.checked }))}
+                    onChange={(e) =>
+                      setEditingItem((p) => ({ ...p, inStock: e.target.checked }))
+                    }
                     className="w-4 h-4 accent-emerald-600"
                   />
                   <span>In Stock</span>
@@ -337,7 +707,9 @@ export default function InventoryManagerTab() {
                   <input
                     type="checkbox"
                     checked={Boolean(editingItem.isWinter)}
-                    onChange={(e) => setEditingItem((p) => ({ ...p, isWinter: e.target.checked }))}
+                    onChange={(e) =>
+                      setEditingItem((p) => ({ ...p, isWinter: e.target.checked }))
+                    }
                     className="w-4 h-4 accent-sky-600"
                   />
                   <span>❄️ Winter Collection</span>
@@ -347,7 +719,9 @@ export default function InventoryManagerTab() {
                   <input
                     type="checkbox"
                     checked={Boolean(editingItem.isPopular)}
-                    onChange={(e) => setEditingItem((p) => ({ ...p, isPopular: e.target.checked }))}
+                    onChange={(e) =>
+                      setEditingItem((p) => ({ ...p, isPopular: e.target.checked }))
+                    }
                     className="w-4 h-4 accent-rose-600"
                   />
                   <span>🔥 Most Popular</span>
@@ -356,10 +730,10 @@ export default function InventoryManagerTab() {
 
               <button
                 type="submit"
-                className="px-6 py-3 rounded-2xl bg-[#8AC926] text-slate-900 font-extrabold text-sm border-2 border-slate-900 shadow-[0_4px_0_#1E1E24] flex items-center gap-2"
+                className="px-6 py-3 rounded-2xl bg-[#8AC926] hover:bg-lime-500 text-slate-900 font-extrabold text-sm border-2 border-slate-900 shadow-[0_4px_0_#1E1E24] flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />
-                Save Product
+                Save Product Changes
               </button>
             </div>
           </form>
@@ -370,22 +744,35 @@ export default function InventoryManagerTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {visibleProducts.map((item) => {
           const profit = (item.price - (item.unitCost || item.price * 0.42)).toFixed(2);
+          const assignedPrint = allAvailablePrints.find(
+            (p) => p.pngPath === item.assignedPrintUrl || p.id === item.printId
+          );
+
           return (
             <div
               key={item.id}
               className="bg-white rounded-3xl border-3 border-slate-900 p-4 shadow-[0_6px_0_#1E1E24] flex flex-col justify-between gap-3"
             >
               <div className="flex gap-4 items-center">
-                <img
-                  src={item.image}
-                  onError={(e) => {
-                    e.currentTarget.src = item.fallbackImage || '/icons/printed-pillow.svg';
-                  }}
-                  alt={item.name}
-                  className="w-20 h-20 rounded-2xl object-cover bg-slate-100 border-2 border-slate-900 shrink-0"
-                />
+                <div className="relative shrink-0">
+                  <img
+                    src={item.image}
+                    onError={(e) => {
+                      e.currentTarget.src =
+                        item.fallbackImage || '/icons/printed-pillow.svg';
+                    }}
+                    alt={item.name}
+                    className="w-20 h-20 rounded-2xl object-cover bg-slate-100 border-2 border-slate-900"
+                  />
+                  {item.images?.length > 1 && (
+                    <span className="absolute -top-1.5 -left-1.5 px-1.5 py-0.5 rounded-full bg-slate-900 text-amber-300 text-[9px] font-extrabold">
+                      {item.images.length} photos
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
                         item.inStock
@@ -395,11 +782,19 @@ export default function InventoryManagerTab() {
                     >
                       {item.inStock ? 'In Stock' : 'Sold Out'}
                     </span>
+
+                    {item.customizable && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 text-indigo-800 truncate max-w-[140px]">
+                        🎨 Print: {assignedPrint ? assignedPrint.name : 'Auto-Match'}
+                      </span>
+                    )}
                   </div>
 
-                  <h4 className="font-display font-bold text-base truncate mt-0.5">{item.name}</h4>
+                  <h4 className="font-display font-bold text-base truncate mt-0.5">
+                    {item.name}
+                  </h4>
                   <p className="text-xs font-extrabold text-slate-800">
-                    ${item.price.toFixed(2)}{' '}
+                    ${Number(item.price).toFixed(2)}{' '}
                     <span className="text-emerald-600 font-bold text-[11px]">
                       (+${profit} profit)
                     </span>
@@ -437,8 +832,8 @@ export default function InventoryManagerTab() {
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setEditingItem(item)}
-                    className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold text-[11px] flex items-center gap-1"
+                    onClick={() => openEditModal(item)}
+                    className="px-3 py-1 rounded-lg bg-slate-900 hover:bg-indigo-600 text-white font-bold text-[11px] flex items-center gap-1 transition-colors"
                   >
                     <Edit3 className="w-3 h-3" /> Edit
                   </button>

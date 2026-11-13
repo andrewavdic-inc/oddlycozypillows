@@ -27,6 +27,11 @@ export default function ProductLightboxModal({
 
   if (!product) return null;
 
+  const gallery =
+    Array.isArray(product.images) && product.images.length > 1
+      ? product.images
+      : [];
+
   return (
     <div
       onClick={onClose}
@@ -50,10 +55,33 @@ export default function ProductLightboxModal({
           <X className="w-5 h-5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]" />
         </button>
 
-        {/* Floating Text-Only Price (No Black Rectangle) */}
+        {/* Floating Text-Only Price */}
         <div className="absolute top-4 left-5 z-20 pointer-events-none text-amber-300 font-display text-2xl sm:text-3xl font-bold [text-shadow:_0_2px_8px_rgba(0,0,0,0.95),_0_1px_3px_rgba(0,0,0,1)]">
           ${Number(product.price).toFixed(2)}
         </div>
+
+        {/* Multi-Photo Thumbnail Switcher (Shown if Product has Multiple Photos) */}
+        {gallery.length > 1 && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/35 backdrop-blur-md px-2.5 py-1.5 rounded-full">
+            {gallery.map((gUrl, idx) => (
+              <button
+                key={`${gUrl}-${idx}`}
+                type="button"
+                onClick={() => {
+                  soundFX.playPop();
+                  setImgSrc(gUrl);
+                }}
+                className={`w-9 h-9 rounded-full overflow-hidden border-2 transition-transform ${
+                  imgSrc === gUrl
+                    ? 'border-amber-300 scale-110 shadow-md'
+                    : 'border-white/40 opacity-75 hover:opacity-100'
+                }`}
+              >
+                <img src={gUrl} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Large Frameless Product Image */}
         <img
@@ -67,7 +95,7 @@ export default function ProductLightboxModal({
           className="w-full max-h-[84vh] object-contain mx-auto block"
         />
 
-        {/* Floating Text-Only Description & Compact Action Buttons (No Black Box) */}
+        {/* Floating Text-Only Description & Compact Action Buttons */}
         <div className="absolute inset-x-4 bottom-3 sm:inset-x-6 sm:bottom-5 z-20 pointer-events-none flex flex-col sm:flex-row items-start sm:items-end justify-between gap-3">
           <div className="space-y-0.5 max-w-lg text-white [text-shadow:_0_2px_10px_rgba(0,0,0,0.95),_0_1px_3px_rgba(0,0,0,1)]">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300 block">
@@ -83,7 +111,6 @@ export default function ProductLightboxModal({
             )}
           </div>
 
-          {/* Compact Round Action Buttons */}
           <div className="pointer-events-auto flex items-center gap-2 shrink-0 self-end">
             {product.customizable && (
               <button
@@ -108,7 +135,7 @@ export default function ProductLightboxModal({
                 onBuyAsShown(product);
               }}
               className="px-5 py-2 rounded-full bg-[#FF595E] hover:bg-[#e0484d] text-white font-extrabold text-xs flex items-center gap-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.6)] transition-transform hover:scale-105 active:scale-95"
-            >
+              >
               <ShoppingBag className="w-3.5 h-3.5" />
               <span>Buy</span>
             </button>

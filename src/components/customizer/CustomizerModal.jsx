@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { X, Upload, ShoppingBag, Sparkles, Check } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import {
   DISPLAY_MODES,
   FABRIC_BG_COLORS,
 } from '../../config/printifySpecs';
-import { resolveLogoVariant } from '../../utils/publicManifest';
+import { resolveLogoVariant, getPublicPrintFiles } from '../../utils/publicManifest';
 import LivePreviewCanvas from './LivePreviewCanvas';
 import { soundFX } from '../../utils/soundEffects';
 
@@ -19,10 +19,28 @@ export default function CustomizerModal({
   const { prints, pillowSizes, blanketSizes } = useStore();
   const canvasRef = useRef(null);
 
+  // Merge store prints with all discovered files in public/prints/
+  const allPrints = useMemo(() => {
+    const list = [...prints];
+    const rawFiles = getPublicPrintFiles();
+    rawFiles.forEach((url) => {
+      if (!list.some((p) => p.pngPath === url)) {
+        const fileName = url.split('/').pop().replace(/\.(png|webp|jpg)$/i, '');
+        list.push({
+          id: fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          name: fileName,
+          pngPath: url,
+          fallbackPath: url,
+        });
+      }
+    });
+    return list;
+  }, [prints]);
+
   const [productType, setProductType] = useState('pillow');
   const [selectedSizeId, setSelectedSizeId] = useState('16x16');
   const [selectedMode, setSelectedMode] = useState('centered');
-  const [selectedPrint, setSelectedPrint] = useState(prints[0]);
+  const [selectedPrint, setSelectedPrint] = useState(allPrints[0]);
   const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [bgColor, setBgColor] = useState('#FFFFFF');
@@ -39,7 +57,7 @@ export default function CustomizerModal({
 
   const whiteLogo = resolveLogoVariant({ theme: 'white', blink: false, withUrl: false });
 
-  // Match the clicked product's exact design when the modal opens
+  // Match the clicked product's exact Transparent PNG Print when the modal opens
   useEffect(() => {
     if (!isOpen) return;
     const type =
@@ -52,50 +70,86 @@ export default function CustomizerModal({
     );
     setSelectedMode(initialProduct?.defaultMode || 'centered');
     setSide('front');
+    setUploadedImageUrl(null);
+    setUploadedFileName('');
 
-    if (initialProduct && prints.length > 0) {
-      const targetId = (initialProduct.printId || '').toLowerCase();
-      const titleLower = (initialProduct.name || '').toLowerCase();
+    if (initialProduct && allPrints.length > 0) {
+      let matchedPrint = null;
 
-      // 1. Match by explicit printId (e.g. 'french-fries', 'donut', 'pizza')
-      let matchedPrint = prints.find(
-        (p) =>
-          targetId &&
-          (p.id.toLowerCase() === targetId ||
-            p.id.toLowerCase().includes(targetId) ||
-            targetId.includes(p.id.toLowerCase()))
-      );
+      // 1. Check Admin's Explicitly Assigned Print URL first
+      if (initialProduct.assignedPrintUrl) {
+        matchedPrint = allPrints.find(
+          (p) => p.pngPath === initialProduct.assignedPrintUrl
+        ) || {
+          id: initialProduct.printId || 'assigned-print',
+          name: initialProduct.name,
+          pngPath: initialProduct.assignedPrintUrl,
+          fallbackPath: initialProduct.assignedPrintUrl,
+        };
+      }
 
-      // 2. Match by product title keywords
+      // 2. Check Admin's Explicitly Assigned printId
+      if (!matchedPrint && initialProduct.printId) {
+        const targetId = initialProduct.printId.toLowerCase();
+        matchedPrint = allPrints.find(
+          (p) =>
+            p.id.toLowerCase() === targetId ||
+            p.name.toLowerCase() === targetId ||
+            p.pngPath.toLowerCase().includes(targetId)
+        );
+      }
+
+      // 3. Smart Keyword & Alias Matcher (e.g., "Classic DC" -> "Coke Diet", "Cookiemon" -> "Cookie/Blue")
       if (!matchedPrint) {
-        matchedPrint = prints.find((p) => {
-          const words = p.name.toLowerCase().split(/\s+/);
-          return words.some((w) => w.length > 3 && titleLower.includes(w));
-        });
+        const titleLower = (initialProduct.name || '').toLowerCase();
+
+        const aliasChecks = [
+          { test: /\bdc\b|diet|cola|coke/, match: /coke|diet|cola/i },
+          { test: /fries|fry/, match: /fries|fry/i },
+          { test: /cookiemon|monster/, match: /monster|cookiemon|blue.*cookie|cookie/i },
+          { test: /choco|chip/, match: /cho.*chip|cookie/i },
+          { test: /gummy|bear/, match: /gummy|bear/i },
+          { test: /reese|puff/, match: /reese|puff|cereal/i },
+          { test: /donut|doughnut/, match: /donut|doughnut/i },
+          { test: /pizza/, match: /pizza/i },
+          { test: /flamin|cheeto|hot/, match: /flamin|cheeto|hot/i },
+          { test: /croissant/, match: /croissant/i },
+          { test: /burger/, match: /burger/i },
+          { test: /boba|tea/, match: /boba|tea/i },
+          { test: /sushi/, match: /sushi/i },
+        ];
+
+        for (const rule of aliasChecks) {
+          if (rule.test.test(titleLower)) {
+            matchedPrint = allPrints.find(
+              (p) => rule.match.test(p.name) || rule.match.test(p.pngPath)
+            );
+            if (matchedPrint) break;
+          }
+        }
+
+        // General word overlap fallback
+        if (!matchedPrint) {
+          matchedPrint = allPrints.find((p) => {
+            const words = p.name.toLowerCase().split(/[^a-z0-9]+/);
+            return words.some((w) => w.length >= 3 && titleLower.includes(w));
+          });
+        }
       }
 
-      if (matchedPrint) {
-        setSelectedPrint(matchedPrint);
-        setUploadedImageUrl(null);
-        setUploadedFileName('');
-      } else if (initialProduct.image) {
-        // 3. Fallback for brand-new Admin-uploaded products: load the product's own image onto the canvas
-        setUploadedImageUrl(initialProduct.image);
-        setUploadedFileName(initialProduct.name);
-      }
+      // Always select a transparent print (NEVER fall back to initialProduct.image couch mockup)
+      setSelectedPrint(matchedPrint || allPrints[0]);
     } else {
-      setSelectedPrint(prints[0]);
-      setUploadedImageUrl(null);
-      setUploadedFileName('');
+      setSelectedPrint(allPrints[0]);
     }
-  }, [isOpen, initialProduct, initialType, prints]);
+  }, [isOpen, initialProduct, initialType, allPrints]);
 
   if (!isOpen) return null;
 
   const sizeOptions = productType === 'pillow' ? pillowSizes : blanketSizes;
   const currentSize =
     sizeOptions.find((s) => s.id === selectedSizeId) || sizeOptions[0];
-  const activePrint = selectedPrint || prints[0];
+  const activePrint = selectedPrint || allPrints[0];
 
   const handleUserUpload = (e) => {
     const file = e.target.files?.[0];
@@ -109,12 +163,12 @@ export default function CustomizerModal({
 
   const handleAddCustomizedToCart = () => {
     soundFX.playSparkleChime();
-    let previewDataUrl = activePrint?.fallbackPath;
+    let previewDataUrl = activePrint?.fallbackPath || activePrint?.pngPath;
     if (canvasRef.current) {
       try {
         previewDataUrl = canvasRef.current.toDataURL('image/png');
       } catch {
-        previewDataUrl = uploadedImageUrl || activePrint?.fallbackPath;
+        previewDataUrl = uploadedImageUrl || activePrint?.pngPath;
       }
     }
 
@@ -158,7 +212,9 @@ export default function CustomizerModal({
             />
             <div>
               <h2 className="font-display text-xl sm:text-2xl font-bold flex items-center gap-2">
-                {initialProduct ? `Customizing: ${initialProduct.name}` : 'Interactive Customizer Studio'}
+                {initialProduct
+                  ? `Customizing: ${initialProduct.name}`
+                  : 'Interactive Customizer Studio'}
                 <Sparkles className="w-5 h-5 text-amber-300" />
               </h2>
               <p className="text-xs text-white/90 font-semibold">
@@ -185,7 +241,7 @@ export default function CustomizerModal({
               bgColor={bgColor}
               mode={selectedMode}
               printSourceUrl={uploadedImageUrl || activePrint?.pngPath}
-              fallbackUrl={activePrint?.fallbackPath}
+              fallbackUrl={activePrint?.fallbackPath || activePrint?.pngPath}
               chaosSeed={chaosSeed}
               onReshuffleChaos={() => setChaosSeed(Math.random() * 1000)}
               customConfig={customConfig}
@@ -283,16 +339,23 @@ export default function CustomizerModal({
                 <label className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow">
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Your Own PNG/JPG</span>
-                  <input type="file" accept="image/*" onChange={handleUserUpload} className="hidden" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUserUpload}
+                    className="hidden"
+                  />
                 </label>
               </div>
 
               <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-36 overflow-y-auto p-1">
-                {prints.map((p) => {
-                  const isSelected = !uploadedImageUrl && activePrint?.id === p.id;
+                {allPrints.map((p) => {
+                  const isSelected =
+                    !uploadedImageUrl &&
+                    (activePrint?.pngPath === p.pngPath || activePrint?.id === p.id);
                   return (
                     <button
-                      key={p.id}
+                      key={p.id + p.pngPath}
                       type="button"
                       onClick={() => {
                         soundFX.playPop();
@@ -309,7 +372,7 @@ export default function CustomizerModal({
                       <img
                         src={p.pngPath}
                         onError={(e) => {
-                          e.currentTarget.src = p.fallbackPath;
+                          if (p.fallbackPath) e.currentTarget.src = p.fallbackPath;
                         }}
                         alt={p.name}
                         className="w-10 h-10 object-contain"
@@ -337,7 +400,9 @@ export default function CustomizerModal({
                       title={col.name}
                       style={{ backgroundColor: col.hex }}
                       className={`w-7 h-7 rounded-full border-2 border-slate-900 flex items-center justify-center ${
-                        bgColor === col.hex ? 'ring-2 ring-offset-2 ring-rose-500 scale-110' : ''
+                        bgColor === col.hex
+                          ? 'ring-2 ring-offset-2 ring-rose-500 scale-110'
+                          : ''
                       }`}
                     >
                       {bgColor === col.hex && (
