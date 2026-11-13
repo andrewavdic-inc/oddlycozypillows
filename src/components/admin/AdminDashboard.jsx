@@ -272,10 +272,12 @@ export default function AdminDashboard({ onExitAdmin }) {
       </main>
 
       {/* Embedded Test Game Modal so Admin Can Preview Cloud Dash Directly */}
-      <PuffSkyGameModal
-        isOpen={isTestGameOpen}
-        onClose={() => setIsTestGameOpen(false)}
-      />
+      {isTestGameOpen && (
+        <PuffSkyGameModal
+          isOpen={isTestGameOpen}
+          onClose={() => setIsTestGameOpen(false)}
+        />
+      )}
     </div>
   );
 }

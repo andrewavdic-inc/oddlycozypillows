@@ -18,7 +18,11 @@ import {
 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { uploadImageFile } from '../../../services/firebaseClient';
-import { getFolderImages, getPublicPrintFiles } from '../../../utils/publicManifest';
+import {
+  getFolderImages,
+  getPublicPrintFiles,
+  getThumbnailUrl,
+} from '../../../utils/publicManifest';
 
 export default function InventoryManagerTab() {
   const {
@@ -316,7 +320,7 @@ export default function InventoryManagerTab() {
         </div>
       </div>
 
-      {/* VISUAL 8-SLOT FRONT-PAGE CURATION TRAY */}
+      {/* VISUAL 8-SLOT FRONT-PAGE CURATION TRAY (Thumbnails + Lazy Loaded) */}
       <div className="bg-white rounded-3xl border-3 border-slate-900 p-5 shadow-[0_6px_0_#1E1E24] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -377,7 +381,14 @@ export default function InventoryManagerTab() {
                 className="relative h-36 rounded-2xl border-2 border-slate-900 overflow-hidden bg-slate-100 flex flex-col justify-between group shadow-sm"
               >
                 <img
-                  src={item.image}
+                  src={getThumbnailUrl(item.image)}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== item.image) {
+                      e.currentTarget.src = item.image;
+                    }
+                  }}
                   alt={item.name}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -498,7 +509,7 @@ export default function InventoryManagerTab() {
         ))}
       </div>
 
-      {/* ADD / EDIT PRODUCT MODAL */}
+      {/* ADD / EDIT PRODUCT MODAL (Uses Thumbnails for Fast Picker Rendering) */}
       {editingItem && (
         <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
           <form
@@ -525,7 +536,6 @@ export default function InventoryManagerTab() {
               </button>
             </div>
 
-            {/* PILLOW CUT STYLE SELECTOR (Square vs Custom-Shaped Cutout) */}
             {editingItem.categoryId === 'printed-pillows' && (
               <div className="p-4 rounded-2xl bg-slate-100 border-2 border-slate-900 space-y-2">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 block">
@@ -627,7 +637,14 @@ export default function InventoryManagerTab() {
                         }`}
                       >
                         <img
-                          src={imgUrl}
+                          src={getThumbnailUrl(imgUrl)}
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            if (e.currentTarget.src !== imgUrl) {
+                              e.currentTarget.src = imgUrl;
+                            }
+                          }}
                           alt={`Product view ${idx + 1}`}
                           className="w-full h-28 object-cover"
                         />
@@ -673,7 +690,7 @@ export default function InventoryManagerTab() {
                   <span className="text-[11px] font-bold text-slate-600 block mb-1.5">
                     Or click to add photos from <code className="font-mono">public/images/{folderMap[editingItem.categoryId]}</code>:
                   </span>
-                  <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto p-1">
+                  <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto p-1">
                     {localFolderFiles.map((fUrl) => {
                       const isPrimary = editingItem.image === fUrl;
                       return (
@@ -687,7 +704,18 @@ export default function InventoryManagerTab() {
                               : 'border-slate-300 hover:border-slate-900'
                           }`}
                         >
-                          <img src={fUrl} alt="" className="w-full h-full object-cover" />
+                          <img
+                            src={getThumbnailUrl(fUrl)}
+                            loading="lazy"
+                            decoding="async"
+                            onError={(e) => {
+                              if (e.currentTarget.src !== fUrl) {
+                                e.currentTarget.src = fUrl;
+                              }
+                            }}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
                         </button>
                       );
                     })}
@@ -696,7 +724,7 @@ export default function InventoryManagerTab() {
               )}
             </div>
 
-            {/* 2. ASSIGN TRANSPARENT PNG PRINT */}
+            {/* 2. ASSIGN TRANSPARENT PNG PRINT (Renders Thumbnails, Saves Full-Res Print Path) */}
             <div className="p-4 sm:p-5 rounded-3xl bg-indigo-50/90 border-2 border-slate-900 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -754,9 +782,15 @@ export default function InventoryManagerTab() {
                         }`}
                       >
                         <img
-                          src={p.pngPath}
+                          src={getThumbnailUrl(p.pngPath)}
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
-                            if (p.fallbackPath) e.currentTarget.src = p.fallbackPath;
+                            if (e.currentTarget.src !== p.pngPath) {
+                              e.currentTarget.src = p.pngPath;
+                            } else if (p.fallbackPath) {
+                              e.currentTarget.src = p.fallbackPath;
+                            }
                           }}
                           alt={p.name}
                           className="w-11 h-11 object-contain"
@@ -932,7 +966,7 @@ export default function InventoryManagerTab() {
         </div>
       )}
 
-      {/* Inventory Cards Grid */}
+      {/* Inventory Cards Grid (Thumbnails + Lazy Loaded) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {visibleProducts.map((item) => {
           const profit = (item.price - (item.unitCost || item.price * 0.42)).toFixed(2);
@@ -949,10 +983,14 @@ export default function InventoryManagerTab() {
               <div className="flex gap-4 items-center">
                 <div className="relative shrink-0">
                   <img
-                    src={item.image}
+                    src={getThumbnailUrl(item.image)}
+                    loading="lazy"
+                    decoding="async"
                     onError={(e) => {
-                      e.currentTarget.src =
-                        item.fallbackImage || '/icons/printed-pillow.svg';
+                      if (e.currentTarget.src !== item.image) {
+                        e.currentTarget.src =
+                          item.image || item.fallbackImage || '/icons/printed-pillow.svg';
+                      }
                     }}
                     alt={item.name}
                     className="w-20 h-20 rounded-2xl object-cover bg-slate-100 border-2 border-slate-900"

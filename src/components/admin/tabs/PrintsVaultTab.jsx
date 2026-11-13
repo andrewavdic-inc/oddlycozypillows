@@ -1,151 +1,157 @@
 import React, { useState } from 'react';
-import { Upload, Trash2 } from 'lucide-react';
+import { Upload, Trash2, Wand2 } from 'lucide-react';
 import { useStore } from '../../../context/StoreContext';
 import { uploadImageFile } from '../../../services/firebaseClient';
+import { getPublicPrintFiles, getThumbnailUrl } from '../../../utils/publicManifest';
 
 export default function PrintsVaultTab() {
-  const { prints, savePrintsList, pillowSizes, blanketSizes, saveSizePricing } = useStore();
+  const { prints, savePrintsList } = useStore();
   const [newPrintName, setNewPrintName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
 
-  const handleUploadPngButton = async (e) => {
+  const publicPrints = getPublicPrintFiles();
+
+  const handleUploadPrint = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsUploading(true);
     try {
-      const pngUrl = await uploadImageFile(file, 'prints');
-      const cleanName =
+      const dataUrl = await uploadImageFile(file, 'prints');
+      const cleanTitle =
         newPrintName.trim() ||
-        file.name.replace(/\.(png|webp|jpg|svg)$/i, '').replace(/[-_]/g, ' ');
+        file.name.replace(/\.(png|jpg|jpeg|svg|webp)$/i, '').replace(/[-_]/g, ' ');
+
       const newEntry = {
         id: `print-${Date.now()}`,
-        name: cleanName,
-        pngPath: pngUrl,
-        fallbackPath: pngUrl,
-        emoji: '✨',
+        name: cleanTitle,
+        pngPath: dataUrl,
+        fallbackPath: dataUrl,
       };
       savePrintsList([newEntry, ...prints]);
       setNewPrintName('');
+    } catch (err) {
+      alert('Failed to upload print graphic.');
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleRemovePrint = (id) => {
-    savePrintsList(prints.filter((p) => p.id !== id));
-  };
-
-  const handlePriceChange = (type, sizeId, newPrice) => {
-    const list = type === 'pillow' ? pillowSizes : blanketSizes;
-    const updated = list.map((s) =>
-      s.id === sizeId ? { ...s, price: Number(newPrice) } : s
-    );
-    saveSizePricing(type, updated);
+  const handleSyncPublicFolderPrints = () => {
+    const existingPaths = new Set(prints.map((p) => p.pngPath));
+    const additions = [];
+    publicPrints.forEach((fileUrl) => {
+      if (!existingPaths.has(fileUrl)) {
+        const rawName = fileUrl
+          .split('/')
+          .pop()
+          .replace(/\.(png|webp|svg)$/i, '')
+          .replace(/[-_]/g, ' ');
+        additions.push({
+          id: `pub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: rawName.charAt(0).toUpperCase() + rawName.slice(1),
+          pngPath: fileUrl,
+          fallbackPath: fileUrl,
+        });
+      }
+    });
+    if (additions.length > 0) {
+      savePrintsList([...additions, ...prints]);
+    } else {
+      alert('All files in public/prints/ are already synced!');
+    }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Transparent PNG Upload Box */}
-      <div className="bg-white p-6 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="font-display text-2xl font-bold">
-              Interactive Customizer PNG Vault ({prints.length})
-            </h2>
-            <p className="text-xs text-slate-600">
-              Upload transparent PNG graphics here so customers can preview them in Centered, Checkered, or Chaotic mode.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              value={newPrintName}
-              onChange={(e) => setNewPrintName(e.target.value)}
-              placeholder="Optional Title (e.g. Taco Cat)"
-              className="px-3.5 py-2.5 rounded-xl border-2 border-slate-900 text-xs font-bold"
-            />
-            <label className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-[#8AC926] hover:bg-lime-500 text-slate-900 font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] cursor-pointer">
-              <Upload className="w-4 h-4" />
-              <span>{isUploading ? 'Uploading PNG...' : 'Upload Transparent PNG'}</span>
-              <input
-                type="file"
-                accept="image/png,image/webp,image/svg+xml"
-                onChange={handleUploadPngButton}
-                className="hidden"
-              />
-            </label>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="font-display text-3xl font-bold">
+            Interactive Customizer PNG Vault
+          </h2>
+          <p className="text-sm text-slate-600">
+            Upload transparent PNG graphics here and they immediately become selectable inside the customer Pillow & Blanket Customizer!
+          </p>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-8 gap-3 pt-2">
-          {prints.map((p) => (
-            <div
-              key={p.id}
-              className="p-3 rounded-2xl bg-slate-50 border-2 border-slate-900 flex flex-col items-center justify-between relative group"
-            >
-              <button
-                type="button"
-                onClick={() => handleRemovePrint(p.id)}
-                className="absolute top-1.5 right-1.5 p-1 rounded-full bg-white text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity border border-slate-300"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-              <img
-                src={p.pngPath}
-                onError={(e) => {
-                  e.currentTarget.src = p.fallbackPath;
-                }}
-                alt={p.name}
-                className="w-14 h-14 object-contain"
-              />
-              <span className="text-[11px] font-extrabold text-center truncate w-full mt-2">
-                {p.name}
-              </span>
-            </div>
-          ))}
+        {publicPrints.length > 0 && (
+          <button
+            type="button"
+            onClick={handleSyncPublicFolderPrints}
+            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs border-2 border-slate-900 shadow-[0_3px_0_#1E1E24] flex items-center gap-2"
+          >
+            <Wand2 className="w-4 h-4" />
+            Sync {publicPrints.length} Files from public/prints/
+          </button>
+        )}
+      </div>
+
+      {/* Upload Box */}
+      <div className="bg-white rounded-3xl border-3 border-slate-900 p-6 shadow-[0_6px_0_#1E1E24] flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex-1 w-full">
+          <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
+            1. Optional Graphic Name (e.g. "Spicy Taco" or "Boston Terrier")
+          </label>
+          <input
+            type="text"
+            placeholder="Leave blank to use file name automatically..."
+            value={newPrintName}
+            onChange={(e) => setNewPrintName(e.target.value)}
+            className="w-full px-4 py-3 rounded-2xl border-2 border-slate-900 text-sm font-bold"
+          />
+        </div>
+
+        <div className="w-full sm:w-auto sm:pt-5">
+          <label className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-[#8AC926] hover:bg-lime-500 text-slate-900 font-extrabold text-sm border-2 border-slate-900 shadow-[0_4px_0_#1E1E24] cursor-pointer">
+            <Upload className="w-4 h-4" />
+            <span>{isUploading ? 'Uploading PNG...' : 'Upload Transparent PNG'}</span>
+            <input
+              type="file"
+              accept="image/png,image/webp,image/svg+xml"
+              onChange={handleUploadPrint}
+              className="hidden"
+            />
+          </label>
         </div>
       </div>
 
-      {/* Customizer Size Pricing Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] space-y-3">
-          <h3 className="font-display text-xl font-bold">Pillow Sizes & Retail Pricing</h3>
-          {pillowSizes.map((sz) => (
-            <div key={sz.id} className="flex items-center justify-between gap-3 text-xs font-bold">
-              <span>{sz.label}</span>
-              <div className="flex items-center gap-1">
-                <span>$</span>
-                <input
-                  type="number"
-                  step="0.50"
-                  value={sz.price}
-                  onChange={(e) => handlePriceChange('pillow', sz.id, e.target.value)}
-                  className="w-24 px-2.5 py-1.5 rounded-xl border-2 border-slate-900 font-extrabold text-right"
-                />
-              </div>
+      {/* Prints Grid (Thumbnails + Lazy Loaded) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {prints.map((p) => (
+          <div
+            key={p.id}
+            className="bg-white rounded-3xl border-3 border-slate-900 p-4 shadow-[0_5px_0_#1E1E24] flex flex-col items-center justify-between gap-3 relative group"
+          >
+            <div className="w-24 h-24 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center p-2">
+              <img
+                src={getThumbnailUrl(p.pngPath)}
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  if (e.currentTarget.src !== p.pngPath) {
+                    e.currentTarget.src = p.pngPath;
+                  } else if (p.fallbackPath) {
+                    e.currentTarget.src = p.fallbackPath;
+                  }
+                }}
+                alt={p.name}
+                className="w-full h-full object-contain"
+              />
             </div>
-          ))}
-        </div>
 
-        <div className="bg-white p-6 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] space-y-3">
-          <h3 className="font-display text-xl font-bold">Blanket Sizes & Retail Pricing</h3>
-          {blanketSizes.map((sz) => (
-            <div key={sz.id} className="flex items-center justify-between gap-3 text-xs font-bold">
-              <span>{sz.label}</span>
-              <div className="flex items-center gap-1">
-                <span>$</span>
-                <input
-                  type="number"
-                  step="0.50"
-                  value={sz.price}
-                  onChange={(e) => handlePriceChange('blanket', sz.id, e.target.value)}
-                  className="w-24 px-2.5 py-1.5 rounded-xl border-2 border-slate-900 font-extrabold text-right"
-                />
-              </div>
+            <div className="text-center w-full">
+              <p className="font-display font-bold text-sm truncate">{p.name}</p>
             </div>
-          ))}
-        </div>
+
+            <button
+              type="button"
+              onClick={() => savePrintsList(prints.filter((item) => item.id !== p.id))}
+              className="p-1.5 rounded-full bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white transition-colors"
+              title="Remove Print"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
