@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   X,
   Trophy,
-  Play,
   RotateCcw,
   Volume2,
   VolumeX,
@@ -15,10 +14,12 @@ import {
   getStarHealthImages,
   resolveLogoVariant,
   resolveButtonImage,
+  resolveIntroVideo,
 } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
 const STAR_IMAGES = getStarHealthImages(); // [Star1, Star2, Star3, Star4, Star5, Star6]
+const INTRO_VIDEO_URL = resolveIntroVideo();
 const CANVAS_W = 450;
 const CANVAS_H = 1000; // Vertical 9:20 Portrait Aspect Ratio
 
@@ -29,6 +30,9 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
 
   // 'ready' | 'playing' | 'gameover'
   const [gameState, setGameState] = useState('ready');
+  const [showIntroScores, setShowIntroScores] = useState(false);
+  const [videoSrc, setVideoSrc] = useState(INTRO_VIDEO_URL);
+
   const [health, setHealth] = useState(5); // 5 = Star1.png ... 0 = Star6.png
   const [score, setScore] = useState(0);
   const [survivalSec, setSurvivalSec] = useState(0);
@@ -102,9 +106,12 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     });
   }, []);
 
-  // Stop music when modal closes
+  // Reset to looping intro video when modal opens; stop music when modal closes
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      setGameState('ready');
+      setShowIntroScores(false);
+    } else {
       soundFX.stopGameMusic();
       gameRef.current.running = false;
       if (gameRef.current.rafId) cancelAnimationFrame(gameRef.current.rafId);
@@ -210,6 +217,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     setSurvivalSec(0);
     setMoonbeamActive(false);
     setScoreSaved(false);
+    setShowIntroScores(false);
     setGameState('playing');
 
     soundFX.startGameMusic();
@@ -288,7 +296,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
       }
       if (g.screenShake > 0) g.screenShake = Math.max(0, g.screenShake - dt * 25);
 
-      // Update Puff Position (Keyboard or Touch/Mouse)
       const moveSpeed = 340;
       if (g.keys.up) g.puff.targetY -= moveSpeed * dt;
       if (g.keys.down) g.puff.targetY += moveSpeed * dt;
@@ -301,7 +308,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
       g.puff.x += (g.puff.targetX - g.puff.x) * Math.min(1, dt * 13);
       g.puff.y += (g.puff.targetY - g.puff.y) * Math.min(1, dt * 13);
 
-      // Downward rainbow starlight trail when Moonbeam is active
       if (isMoonbeam && Math.random() < 0.7) {
         const colors = ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#FF6392'];
         g.particles.push({
@@ -334,7 +340,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
-      // Spawn Cozy Pillows / Squishies from Top to Regain Health (powerup.mp3)
+      // Spawn Cozy Pillows / Squishies from Top to Regain Health
       g.itemTimer -= dt;
       if (g.itemTimer <= 0) {
         g.itemTimer = 4.0 + Math.random() * 2.4;
@@ -355,7 +361,7 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         });
       }
 
-      // Spawn Moonbeam Orb Powerup from Top (moonbeam.mp3)
+      // Spawn Moonbeam Orb Powerup from Top
       g.moonbeamSpawnTimer -= dt;
       if (g.moonbeamSpawnTimer <= 0) {
         g.moonbeamSpawnTimer = 14.5 + Math.random() * 6;
@@ -464,7 +470,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         );
       }
 
-      // Dynamic Sky Gradient (Day -> Sunset -> Starry Moonbeam Night)
       const cycle = (g.elapsed % 75) / 75;
       let topColor = '#0284C7';
       let botColor = '#BAE6FD';
@@ -489,7 +494,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-      // Twinkling Background Stars during Sunset/Night
       if (nightAlpha > 0) {
         ctx.fillStyle = '#FEF08A';
         g.bgStars.forEach((st) => {
@@ -502,7 +506,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         ctx.globalAlpha = 1;
       }
 
-      // Parallax Fluffy Clouds Scrolling Downward as Puff Flies Up
       g.clouds.forEach((cl) => {
         cl.y += cl.speed * difficulty * 65 * dt;
         if (cl.y > CANVAS_H + 80) {
@@ -512,7 +515,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
         drawFluffyCloud(ctx, cl.x, cl.y, cl.scale, cl.alpha, false);
       });
 
-      // Draw Collectibles & Hazards
       g.entities.forEach((ent) => {
         ctx.save();
         ctx.translate(ent.x, ent.y);
@@ -615,7 +617,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
       }
       ctx.restore();
 
-      // Update & Draw Burst Particles
       for (let i = g.particles.length - 1; i >= 0; i--) {
         const pt = g.particles[i];
         pt.x += pt.vx * dt;
@@ -633,7 +634,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
       }
       ctx.globalAlpha = 1;
 
-      // Update & Draw Floating Combat/Heal Texts
       for (let i = g.floatingTexts.length - 1; i >= 0; i--) {
         const ft = g.floatingTexts[i];
         ft.y -= 42 * dt;
@@ -664,7 +664,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     };
   }, [isOpen, gameState]);
 
-  // Pointer Move Handler inside 9:20 Portrait Canvas
   const handleCanvasPointer = (e) => {
     if (gameState !== 'playing' || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -678,7 +677,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
     const canvasY = (clientY - rect.top) * scaleY;
 
     gameRef.current.puff.targetX = Math.max(46, Math.min(CANVAS_W - 46, canvasX));
-    // Offset slightly above finger on touch screens so the player's thumb doesn't cover Puff
     const touchOffsetY = e.touches ? -55 : 0;
     gameRef.current.puff.targetY = Math.max(
       160,
@@ -700,7 +698,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Map health (5 down to 0) to Star1.png (index 0) through Star6.png (index 5)
   const starImgIndex = Math.max(0, Math.min(5, 5 - health));
   const currentStarSrc = STAR_IMAGES[starImgIndex];
   const unlockedDiscount = score >= 500 || survivalSec >= 45;
@@ -732,75 +729,74 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           className="w-full h-full object-cover block touch-none cursor-crosshair"
         />
 
-        {/* Top Portrait HUD Overlay: Star1-Star6 Health, Score & Audio/Close Controls */}
-        <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-1.5 pointer-events-none">
-          {/* Star1.png - Star6.png Health Meter */}
-          <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg">
-            <img
-              src={currentStarSrc}
-              alt={`Health Star ${health}/5`}
-              className="w-8 h-8 object-contain drop-shadow-[0_2px_8px_rgba(250,204,21,0.65)]"
-            />
-            <div>
-              <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-300 block leading-none">
-                HP {health}/5
-              </span>
-              <div className="w-12 h-1.5 rounded-full bg-slate-800 overflow-hidden mt-1">
-                <div
-                  style={{ width: `${(health / 5) * 100}%` }}
-                  className="h-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-all duration-300"
-                />
+        {/* Top Portrait HUD Overlay (Shown During Active Gameplay & Game Over) */}
+        {gameState !== 'ready' && (
+          <div className="absolute top-3 left-3 right-3 z-20 flex items-center justify-between gap-1.5 pointer-events-none">
+            <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-full shadow-lg">
+              <img
+                src={currentStarSrc}
+                alt={`Health Star ${health}/5`}
+                className="w-8 h-8 object-contain drop-shadow-[0_2px_8px_rgba(250,204,21,0.65)]"
+              />
+              <div>
+                <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-300 block leading-none">
+                  HP {health}/5
+                </span>
+                <div className="w-12 h-1.5 rounded-full bg-slate-800 overflow-hidden mt-1">
+                  <div
+                    style={{ width: `${(health / 5) * 100}%` }}
+                    className="h-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-all duration-300"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Score & Timer */}
-          <div className="flex items-center gap-2.5 bg-slate-950/70 backdrop-blur-md px-3.5 py-1.5 rounded-full text-white shadow-lg">
-            <div className="text-center">
-              <span className="text-[8px] uppercase font-extrabold text-sky-300 block leading-none">
-                Score
-              </span>
-              <span className="font-display text-sm font-bold text-amber-300">
-                {score}
-              </span>
+            <div className="flex items-center gap-2.5 bg-slate-950/70 backdrop-blur-md px-3.5 py-1.5 rounded-full text-white shadow-lg">
+              <div className="text-center">
+                <span className="text-[8px] uppercase font-extrabold text-sky-300 block leading-none">
+                  Score
+                </span>
+                <span className="font-display text-sm font-bold text-amber-300">
+                  {score}
+                </span>
+              </div>
+              <div className="h-4 w-px bg-white/20" />
+              <div className="text-center">
+                <span className="text-[8px] uppercase font-extrabold text-sky-300 block leading-none">
+                  Time
+                </span>
+                <span className="font-display text-sm font-bold">{survivalSec}s</span>
+              </div>
             </div>
-            <div className="h-4 w-px bg-white/20" />
-            <div className="text-center">
-              <span className="text-[8px] uppercase font-extrabold text-sky-300 block leading-none">
-                Time
-              </span>
-              <span className="font-display text-sm font-bold">{survivalSec}s</span>
+
+            <div className="flex items-center gap-1 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => setIsMuted(soundFX.toggleMute())}
+                className="w-8 h-8 rounded-full bg-slate-950/70 hover:bg-slate-800 text-white flex items-center justify-center transition-colors"
+                title="Mute / Unmute Game Audio"
+              >
+                {isMuted ? (
+                  <VolumeX className="w-4 h-4 text-rose-400" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-emerald-400" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  soundFX.stopGameMusic();
+                  onClose();
+                }}
+                className="w-8 h-8 rounded-full bg-rose-500/90 hover:bg-rose-600 text-white flex items-center justify-center transition-colors"
+                title="Close Game"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
-
-          {/* Mute & Close Buttons */}
-          <div className="flex items-center gap-1 pointer-events-auto">
-            <button
-              type="button"
-              onClick={() => setIsMuted(soundFX.toggleMute())}
-              className="w-8 h-8 rounded-full bg-slate-950/70 hover:bg-slate-800 text-white flex items-center justify-center transition-colors"
-              title="Mute / Unmute Game Audio"
-            >
-              {isMuted ? (
-                <VolumeX className="w-4 h-4 text-rose-400" />
-              ) : (
-                <Volume2 className="w-4 h-4 text-emerald-400" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                soundFX.stopGameMusic();
-                onClose();
-              }}
-              className="w-8 h-8 rounded-full bg-rose-500/90 hover:bg-rose-600 text-white flex items-center justify-center transition-colors"
-              title="Close Game"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Moonbeam Active Banner */}
         {moonbeamActive && (
@@ -811,55 +807,121 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* ================= OVERLAY 1: VERTICAL START SCREEN & HI-SCORES ================= */}
+        {/* ================= OVERLAY 1: LOOPING INTRO VIDEO & "TAP TO START" ================= */}
         {gameState === 'ready' && (
-          <div className="absolute inset-0 z-10 bg-slate-950/75 backdrop-blur-md flex flex-col items-center justify-between p-6 pt-16 text-white text-center overflow-y-auto">
-            <div className="space-y-3 mt-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-900 text-[10px] font-extrabold uppercase">
-                <Sparkles className="w-3 h-3" />
-                Secret Vertical Arcade
-              </span>
-              <h2 className="font-display text-3xl font-bold leading-tight">
-                Puff’s <span className="text-amber-300">Cloud Dash</span>
-              </h2>
-              <p className="text-xs text-slate-200 leading-relaxed">
-                Slide your thumb or cursor to fly Puff high into the clouds! Dodge{' '}
-                <strong>Storm Clouds ⚡</strong> & <strong>Alarm Clocks ⏰</strong>, catch{' '}
-                <strong>Cozy Pillows 🍟</strong> to heal your Star, and grab{' '}
-                <strong>Moonbeams 🌙</strong> for Starlight Invincibility!
-              </p>
+          <div
+            onClick={startNewGame}
+            role="button"
+            tabIndex={0}
+            className="absolute inset-0 z-10 cursor-pointer flex flex-col justify-between p-5 select-none overflow-hidden"
+          >
+            {/* Looping Portrait Intro Video */}
+            <video
+              src={videoSrc}
+              autoPlay
+              loop
+              muted
+              playsInline
+              onError={() => {
+                if (videoSrc !== '/video_1.mp4') {
+                  setVideoSrc('/video_1.mp4');
+                } else {
+                  setVideoSrc('/intro.mp4');
+                }
+              }}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
 
-              <button
-                type="button"
-                onClick={startNewGame}
-                className="w-full py-3.5 px-6 rounded-full bg-[#8AC926] hover:bg-lime-400 text-slate-900 font-display text-lg font-bold shadow-[0_6px_20px_rgba(138,201,38,0.5)] flex items-center justify-center gap-2 transition-transform hover:scale-105"
+            {/* Top Bar: Game Title & Top-Right Close / Hi-Score Toggle */}
+            <div className="relative z-10 flex items-start justify-between gap-2 pt-1">
+              <div className="pointer-events-none">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-950/55 backdrop-blur-md text-amber-300 text-[10px] font-extrabold uppercase tracking-wider shadow">
+                  <Sparkles className="w-3 h-3" />
+                  Oddly Cozy Arcade
+                </span>
+                <h2 className="font-display text-3xl font-bold text-white mt-1 [text-shadow:_0_3px_12px_rgba(0,0,0,0.85)]">
+                  Puff’s <span className="text-amber-300">Cloud Dash</span>
+                </h2>
+              </div>
+
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5"
               >
-                <Play className="w-5 h-5 fill-slate-900" />
-                Take Off & Fly!
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFX.playPop();
+                    setShowIntroScores((prev) => !prev);
+                  }}
+                  className="px-3 py-1.5 rounded-full bg-slate-950/65 hover:bg-slate-900 text-amber-300 text-xs font-extrabold backdrop-blur-md flex items-center gap-1 shadow-lg transition-transform hover:scale-105"
+                  title="View High Scores"
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Hi-Scores</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundFX.stopGameMusic();
+                    onClose();
+                  }}
+                  className="w-8 h-8 rounded-full bg-slate-950/65 hover:bg-rose-500 text-white backdrop-blur-md flex items-center justify-center transition-colors shadow-lg"
+                  title="Close Game"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Live High Score Leaderboard */}
-            <div className="w-full bg-slate-900/90 rounded-3xl p-4 border border-white/15 text-left mt-4">
-              <div className="flex items-center justify-center gap-1.5 text-amber-300 font-display font-bold text-sm mb-2.5">
-                <Trophy className="w-4 h-4" />
-                <span>Top Cloud Flyers (Hi-Scores)</span>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                {highScores.slice(0, 5).map((entry, idx) => (
-                  <div
-                    key={entry.id || idx}
-                    className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/5"
+            {/* Optional Collapsible High Score Drawer if Toggled */}
+            {showIntroScores && (
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="relative z-10 w-full bg-slate-950/80 backdrop-blur-md rounded-3xl p-4 border border-white/20 text-left text-white my-auto"
+              >
+                <div className="flex items-center justify-between text-amber-300 font-display font-bold text-sm mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <Trophy className="w-4 h-4" />
+                    Top Cloud Flyers
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowIntroScores(false)}
+                    className="text-[11px] text-slate-300 hover:text-white underline"
                   >
-                    <span className="font-bold text-slate-200">
-                      {idx + 1}. {entry.name}
-                    </span>
-                    <span className="font-extrabold text-amber-300">
-                      {entry.score} pts ({entry.survivalSec}s)
-                    </span>
-                  </div>
-                ))}
+                    Hide
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  {highScores.slice(0, 5).map((entry, idx) => (
+                    <div
+                      key={entry.id || idx}
+                      className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/10"
+                    >
+                      <span className="font-bold text-slate-100">
+                        {idx + 1}. {entry.name}
+                      </span>
+                      <span className="font-extrabold text-amber-300">
+                        {entry.score} pts ({entry.survivalSec}s)
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Bottom Floating "TAP TO START" Prompt (Positioned Over Lower Clouds) */}
+            <div className="relative z-10 pb-5 text-center pointer-events-none flex flex-col items-center gap-2">
+              <div className="px-8 py-3.5 rounded-full bg-slate-950/60 backdrop-blur-md border-2 border-amber-300/90 shadow-[0_10px_30px_rgba(0,0,0,0.65)] animate-bounce">
+                <span className="font-display text-2xl sm:text-3xl font-bold tracking-wider uppercase text-amber-300 [text-shadow:_0_2px_8px_rgba(0,0,0,0.95)]">
+                  Tap to Start
+                </span>
+              </div>
+              <span className="text-[11px] font-extrabold text-white [text-shadow:_0_2px_6px_rgba(0,0,0,0.95)]">
+                Catch Pillows & Gold Orbs • Dodge Storm Clouds!
+              </span>
             </div>
           </div>
         )}
@@ -882,7 +944,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 </h3>
               </div>
 
-              {/* Secret Promo Code Reward */}
               {unlockedDiscount ? (
                 <div className="p-3 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-left space-y-1.5">
                   <span className="font-extrabold text-emerald-300 text-xs block">
@@ -911,7 +972,6 @@ export default function PuffSkyGameModal({ isOpen, onClose }) {
                 </p>
               )}
 
-              {/* Submit to High Score Board */}
               {!scoreSaved ? (
                 <form onSubmit={handleSaveScore} className="flex flex-col gap-2 pt-1">
                   <input

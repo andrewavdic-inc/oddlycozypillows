@@ -23,6 +23,20 @@ export function getThumbnailUrl(originalUrl) {
 }
 
 /**
+ * Resolves the game intro MP4 video from public/ automatically
+ */
+export function resolveIntroVideo() {
+  const videoFiles = ALL_FILES.filter((f) => /\.(mp4|webm|mov)$/i.test(f));
+  if (videoFiles.length > 0) {
+    const preferred = videoFiles.find((f) =>
+      /(intro|video_1|puff|game|gemini)/i.test(f)
+    );
+    return preferred || videoFiles[0];
+  }
+  return '/video_1.mp4';
+}
+
+/**
  * Resolves Star1.png - Star6.png for Puff's Cloud Dash health meter
  * Star1 = 5/5 Full Health ... Star6 = 0/5 Empty Star
  */
