@@ -97,13 +97,15 @@ export default function SmartFloatingMascot({
   const openLogo = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
   const blinkLogo = resolveLogoVariant({ theme: 'color', blink: true, withUrl: false });
 
-  // Preload the Wakeup PNG frames in the background
+// Only preload the Wakeup animation frames AFTER the user sends Puff to sleep!
   useEffect(() => {
+    if (phase !== 'sleeping') return;
     WAKEUP_FRAMES.forEach((src) => {
       const img = new Image();
+      img.decoding = 'async';
       img.src = src;
     });
-  }, []);
+  }, [phase]);
 
   // Keep Puff inside the screen if the browser window is resized
   useEffect(() => {

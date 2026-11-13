@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Wand2, Maximize2 } from 'lucide-react';
+import { getThumbnailUrl } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
 export default function ProductCard({
@@ -9,10 +10,11 @@ export default function ProductCard({
   onCustomizeProduct,
   onInspectProduct,
 }) {
-  const [imgSrc, setImgSrc] = useState(product.image);
+  const thumbUrl = getThumbnailUrl(product.image);
+  const [imgSrc, setImgSrc] = useState(thumbUrl);
 
   useEffect(() => {
-    setImgSrc(product.image);
+    setImgSrc(getThumbnailUrl(product.image));
   }, [product.image]);
 
   const handleOneClickBuy = (e) => {
@@ -34,7 +36,7 @@ export default function ProductCard({
       data-product-custom={Boolean(product.customizable)}
       className="bg-white text-slate-900 rounded-3xl border-3 border-slate-900 shadow-[0_6px_0_#1E1E24] overflow-hidden flex flex-col justify-between transition-transform duration-200 hover:-translate-y-1"
     >
-      {/* Clickable Product Image -> Opens Frameless Lightbox */}
+      {/* Clickable Thumbnail Image -> Opens Full-Resolution Frameless Lightbox */}
       <div
         onClick={() => {
           soundFX.playPop();
@@ -42,13 +44,17 @@ export default function ProductCard({
         }}
         role="button"
         tabIndex={0}
-        title="Click to view full photo & details"
+        title="Click to view full-resolution photo & details"
         className="relative h-64 bg-slate-100 overflow-hidden group cursor-zoom-in"
       >
         <img
           src={imgSrc}
+          loading="lazy"
+          decoding="async"
           onError={() => {
-            if (product.fallbackImage && imgSrc !== product.fallbackImage) {
+            if (imgSrc !== product.image) {
+              setImgSrc(product.image);
+            } else if (product.fallbackImage && imgSrc !== product.fallbackImage) {
               setImgSrc(product.fallbackImage);
             }
           }}

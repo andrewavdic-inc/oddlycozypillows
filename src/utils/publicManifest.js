@@ -2,12 +2,34 @@
 const ALL_FILES = typeof __PUBLIC_FILES__ !== 'undefined' ? __PUBLIC_FILES__ : [];
 
 /**
- * Returns all image URLs inside a specific public subfolder
+ * Converts any local public image URL into its lightweight /thumbs/*.webp version if available
+ */
+export function getThumbnailUrl(originalUrl) {
+  if (!originalUrl || typeof originalUrl !== 'string') return originalUrl;
+  if (
+    originalUrl.startsWith('data:') ||
+    originalUrl.startsWith('http') ||
+    originalUrl.endsWith('.svg') ||
+    originalUrl.startsWith('/thumbs/')
+  ) {
+    return originalUrl;
+  }
+
+  const withoutExt = originalUrl.replace(/\.(jpg|jpeg|png|webp|avif)$/i, '');
+  const expectedThumb = `/thumbs${withoutExt}.webp`.toLowerCase();
+
+  const match = ALL_FILES.find((f) => f.toLowerCase() === expectedThumb);
+  return match || originalUrl;
+}
+
+/**
+ * Returns all full-res image URLs inside a specific public subfolder (excluding /thumbs/)
  */
 export function getFolderImages(folderName) {
   const target = folderName.toLowerCase().trim();
   return ALL_FILES.filter((fileUrl) => {
     const lower = fileUrl.toLowerCase();
+    if (lower.startsWith('/thumbs/')) return false;
     return (
       lower.includes(`/images/${target}/`) ||
       lower.includes(`/image/${target}/`) ||
@@ -16,9 +38,6 @@ export function getFolderImages(folderName) {
   }).sort();
 }
 
-/**
- * Finds the best matching image inside a category folder by keyword(s), or falls back by index
- */
 export function resolveCategoryImage(folderName, keywords = [], fallbackIndex = 0, explicitFallback = '') {
   const folderFiles = getFolderImages(folderName);
   if (folderFiles.length > 0) {
@@ -32,12 +51,13 @@ export function resolveCategoryImage(folderName, keywords = [], fallbackIndex = 
 }
 
 /**
- * Resolves the transparent PNG category button images (with automatic .png / .jpg fallback)
+ * Resolves the category button image and automatically prefers its lightweight thumbnail
  */
 export function resolveButtonImage(baseName, fallbackUrl = '') {
   const cleanBase = baseName.toLowerCase().replace(/\.(png|jpg|jpeg|webp)$/i, '');
   const found = ALL_FILES.find((f) => {
     const lower = f.toLowerCase();
+    if (lower.startsWith('/thumbs/')) return false;
     return (
       lower.includes(`${cleanBase}.png`) ||
       lower.includes(`${cleanBase}.webp`) ||
@@ -45,37 +65,39 @@ export function resolveButtonImage(baseName, fallbackUrl = '') {
       lower.includes(`${cleanBase}.jpeg`)
     );
   });
-  return found || `/${cleanBase}.png` || fallbackUrl;
+  const primary = found || `/${cleanBase}.png` || fallbackUrl;
+  return getThumbnailUrl(primary);
 }
 
 /**
- * Discovers and numerically sorts all Wakeup01.png - Wakeup49.png frames in public/
+ * Discovers and sorts all Wakeup frames (automatically using lightweight /thumbs/ WebP versions)
  */
 export function getWakeupFrames() {
-  const discovered = ALL_FILES.filter((f) => /wakeup\s*\d+\.(png|webp|jpg)$/i.test(f));
+  const discovered = ALL_FILES.filter(
+    (f) => !f.toLowerCase().startsWith('/thumbs/') && /wakeup\s*\d+\.(png|webp|jpg)$/i.test(f)
+  );
 
   if (discovered.length > 0) {
-    return [...discovered].sort((a, b) => {
-      const numA = parseInt(a.match(/(\d+)\.(png|webp|jpg)$/i)?.[1] || '0', 10);
-      const numB = parseInt(b.match(/(\d+)\.(png|webp|jpg)$/i)?.[1] || '0', 10);
-      return numA - numB;
-    });
+    return [...discovered]
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/(\d+)\.(png|webp|jpg)$/i)?.[1] || '0', 10);
+        const numB = parseInt(b.match(/(\d+)\.(png|webp|jpg)$/i)?.[1] || '0', 10);
+        return numA - numB;
+      })
+      .map((frameUrl) => getThumbnailUrl(frameUrl));
   }
 
-  // Fallback array for Wakeup01.png - Wakeup46.png inside public/wake up PNGs/
   return Array.from({ length: 46 }, (_, i) => {
     const num = String(i + 1).padStart(2, '0');
-    return `/wake up PNGs/Wakeup${num}.png`;
+    return getThumbnailUrl(`/wake up PNGs/Wakeup${num}.png`);
   });
 }
 
-/**
- * Finds the hero room banner image in public/ or public/images/
- */
 export function resolveBannerImage() {
   const bannerKeywords = ['banner', 'hero', 'room', 'header', 'couch'];
   const nonCategoryFiles = ALL_FILES.filter(
     (f) =>
+      !f.toLowerCase().startsWith('/thumbs/') &&
       !f.toLowerCase().startsWith('/icons/') &&
       !f.toLowerCase().includes('/logo') &&
       !f.toLowerCase().includes('_button') &&
@@ -90,9 +112,6 @@ export function resolveBannerImage() {
   return '/website-banner.jpg';
 }
 
-/**
- * Resolves your 12 Logo Variants
- */
 export function resolveLogoVariant({
   theme = 'color',
   blink = false,
@@ -101,6 +120,7 @@ export function resolveLogoVariant({
   const logoFiles = ALL_FILES.filter((f) => {
     const l = f.toLowerCase();
     return (
+      !l.startsWith('/thumbs/') &&
       (l.includes('logo') || l.includes('mascot')) &&
       !l.startsWith('/icons/') &&
       !l.includes('/images/')
@@ -142,9 +162,8 @@ export function resolveLogoVariant({
   return `${prefix}${blinkSuffix}${urlSuffix}.svg`;
 }
 
-/**
- * Returns all transparent PNG prints in public/prints/
- */
 export function getPublicPrintFiles() {
-  return ALL_FILES.filter((f) => f.toLowerCase().includes('/prints/'));
+  return ALL_FILES.filter(
+    (f) => !f.toLowerCase().startsWith('/thumbs/') && f.toLowerCase().includes('/prints/')
+  );
 }
