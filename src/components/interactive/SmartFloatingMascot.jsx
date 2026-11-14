@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import confetti from 'canvas-confetti';
 import { Sparkles, Wand2, Tag, Check, Move, ArrowDown, Gamepad2 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
-import { DEFAULT_MASCOT_PITCHES } from '../../data/initialAdminData.js';
+import { DEFAULT_MASCOT_PITCHES } from '../../data/initialAdminData';
 import { getWakeupFrames, resolveLogoVariant } from '../../utils/publicManifest';
 import { soundFX } from '../../utils/soundEffects';
 
@@ -30,66 +30,61 @@ export default function SmartFloatingMascot({
   const { cms } = useStore();
   const activePromo = cms?.mascotPromoCode || 'COZY15';
 
-  // Build dynamic section pitches from Admin CMS
   const sectionPitches = useMemo(() => {
-    const customTexts = {
-      ...DEFAULT_MASCOT_PITCHES,
-      ...(cms?.mascotPitches || {}),
-    };
-
+    const custom = { ...DEFAULT_MASCOT_PITCHES, ...(cms?.mascotPitches || {}) };
     return {
       'category-bubbles-menu': {
-        text: customTexts['category-bubbles-menu'],
+        text: custom['category-bubbles-menu'],
         ctaLabel: 'Featured Items',
         ctaType: 'scroll-featured',
       },
       'winter-collection': {
-        text: customTexts['winter-collection'],
+        text: custom['winter-collection'],
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       'most-popular': {
-        text: customTexts['most-popular'],
+        text: custom['most-popular'],
         ctaLabel: 'Customize a Pillow',
         ctaType: 'open-customizer',
       },
       'customizer-section': {
-        text: customTexts['customizer-section'],
+        text: custom['customizer-section'],
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       'printed-pillows': {
-        text: customTexts['printed-pillows'],
+        text: custom['printed-pillows'],
         ctaLabel: 'Open Pillow Studio',
         ctaType: 'open-customizer',
       },
       'oddly-cozy-pillows': {
-        text: customTexts['oddly-cozy-pillows'],
+        text: custom['oddly-cozy-pillows'],
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       'printed-blankets': {
-        text: customTexts['printed-blankets'],
+        text: custom['printed-blankets'],
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       'oddly-cozy-blankets': {
-        text: customTexts['oddly-cozy-blankets'],
+        text: custom['oddly-cozy-blankets'],
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       'matching-sets': {
-        text: customTexts['matching-sets'],
+        text: custom['matching-sets'],
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       rugs: {
-        text: customTexts.rugs,
+        text: custom.rugs,
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
       toys: {
-        text: customTexts.toys,
+        text: custom.toys,
         ctaLabel: `Copy ${activePromo}`,
         ctaType: 'copy-code',
       },
@@ -98,10 +93,11 @@ export default function SmartFloatingMascot({
 
   const [phase, setPhase] = useState('awake');
   const [isBlinking, setIsBlinking] = useState(false);
-  const [pitch, setPitch] = useState(sectionPitches['winter-collection']);
+  const [pitch, setPitch] = useState(() => sectionPitches['winter-collection']);
   const [copiedCode, setCopiedCode] = useState(false);
 
   const quickTapTimestampsRef = useRef([]);
+  const wakeupIntervalRef = useRef(null);
   const [antsyMode, setAntsyMode] = useState(false);
 
   const [position, setPosition] = useState(getInitialMascotPosition);
@@ -122,6 +118,14 @@ export default function SmartFloatingMascot({
   const openLogo = resolveLogoVariant({ theme: 'color', blink: false, withUrl: false });
   const blinkLogo = resolveLogoVariant({ theme: 'color', blink: true, withUrl: false });
 
+  // Clean up wakeup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (wakeupIntervalRef.current) clearInterval(wakeupIntervalRef.current);
+    };
+  }, []);
+
+  // Preload Wakeup frames once Puff goes to sleep
   useEffect(() => {
     if (phase !== 'sleeping') return;
     WAKEUP_FRAMES.forEach((src) => {
@@ -131,6 +135,7 @@ export default function SmartFloatingMascot({
     });
   }, [phase]);
 
+  // Keep Puff inside viewport on window resize
   useEffect(() => {
     const handleResize = () => {
       setPosition((prev) => ({
@@ -142,6 +147,7 @@ export default function SmartFloatingMascot({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Natural blinking loop while awake
   useEffect(() => {
     if (phase !== 'awake') return;
     const interval = setInterval(() => {
@@ -167,8 +173,8 @@ export default function SmartFloatingMascot({
           mascotCenterX <= rect.right + 25;
 
         if (isOverButtonMenu) {
-          const menuPitch = sectionPitches['category-bubbles-menu'];
-          setPitch((prev) => (prev.text !== menuPitch.text ? menuPitch : prev));
+          const btnPitch = sectionPitches['category-bubbles-menu'];
+          setPitch((prev) => (prev.text !== btnPitch.text ? btnPitch : prev));
           return;
         }
       }
@@ -195,6 +201,7 @@ export default function SmartFloatingMascot({
     evaluateMascotContext(position.x, position.y);
   }, [position.x, position.y, phase, currentPage, evaluateMascotContext]);
 
+  // Scroll & Hover Intelligence
   useEffect(() => {
     if (phase !== 'awake') return;
 
@@ -210,22 +217,6 @@ export default function SmartFloatingMascot({
         return;
       }
 
-      // Listen for Custom-Shaped Pillow studio tab switches
-  useEffect(() => {
-    const handleCustomPitch = (e) => {
-      if (e.detail?.text) {
-        soundFX.playMascotSqueak();
-        setPitch({
-          text: e.detail.text,
-          ctaLabel: `Copy ${activePromo}`,
-          ctaType: 'copy-code',
-        });
-      }
-    };
-    window.addEventListener('oddlycozy:mascot-pitch', handleCustomPitch);
-    return () => window.removeEventListener('oddlycozy:mascot-pitch', handleCustomPitch);
-  }, [activePromo]);
-  
       const cardTitleEl = e.target.closest('[data-product-title]');
       if (cardTitleEl) {
         const title = cardTitleEl.getAttribute('data-product-title');
@@ -249,8 +240,35 @@ export default function SmartFloatingMascot({
       window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('mouseover', handleMouseOver);
     };
-  }, [phase, currentPage, position.x, position.y, antsyMode, sectionPitches, activePromo, evaluateMascotContext]);
+  }, [
+    phase,
+    currentPage,
+    position.x,
+    position.y,
+    antsyMode,
+    activePromo,
+    sectionPitches,
+    evaluateMascotContext,
+  ]);
 
+  // Top-level Custom-Shaped Pillow Studio Event Listener (Fixes React Error #321)
+  useEffect(() => {
+    const handleCustomPitch = (e) => {
+      if (e.detail?.text) {
+        soundFX.playMascotSqueak();
+        setPitch({
+          text: e.detail.text,
+          ctaLabel: `Copy ${activePromo}`,
+          ctaType: 'copy-code',
+        });
+      }
+    };
+    window.addEventListener('oddlycozy:mascot-pitch', handleCustomPitch);
+    return () =>
+      window.removeEventListener('oddlycozy:mascot-pitch', handleCustomPitch);
+  }, [activePromo]);
+
+  // Dragging Pointer Listeners
   useEffect(() => {
     const handlePointerMove = (e) => {
       if (!dragRef.current.active) return;
@@ -258,8 +276,14 @@ export default function SmartFloatingMascot({
       const dy = e.clientY - dragRef.current.startY;
       dragRef.current.movedDistance = Math.hypot(dx, dy);
 
-      const nextX = Math.max(16, Math.min(window.innerWidth - 125, dragRef.current.initialX + dx));
-      const nextY = Math.max(85, Math.min(window.innerHeight - 135, dragRef.current.initialY + dy));
+      const nextX = Math.max(
+        16,
+        Math.min(window.innerWidth - 125, dragRef.current.initialX + dx)
+      );
+      const nextY = Math.max(
+        85,
+        Math.min(window.innerHeight - 135, dragRef.current.initialY + dy)
+      );
 
       setPosition({ x: nextX, y: nextY });
     };
@@ -280,7 +304,6 @@ export default function SmartFloatingMascot({
     };
   }, []);
 
-  // Respect Operator Master Switch
   if (cms?.mascotEnabled === false) return null;
 
   const handleMascotPointerDown = (e) => {
@@ -359,6 +382,7 @@ export default function SmartFloatingMascot({
     }
   };
 
+  // 3-Tap Wake-Up Handler
   const handleSleepingTap = () => {
     if (phase !== 'sleeping') return;
     const nextTap = tapCount + 1;
@@ -367,31 +391,40 @@ export default function SmartFloatingMascot({
     if (nextTap < 3) {
       soundFX.playGremlinGrumble(nextTap);
     } else {
-      soundFX.playWakeupSequenceSound();
+      // Transition to waking state FIRST so nothing can block the animation
       setPhase('waking');
       setFrameIndex(0);
       setIsLaunchingUp(false);
+      soundFX.playWakeupSequenceSound();
 
-      const totalFrames = WAKEUP_FRAMES.length;
+      const totalFrames = Math.max(1, WAKEUP_FRAMES.length);
       let current = 0;
 
-      const animInterval = setInterval(() => {
+      if (wakeupIntervalRef.current) clearInterval(wakeupIntervalRef.current);
+
+      wakeupIntervalRef.current = setInterval(() => {
         current += 1;
         if (current === Math.floor(totalFrames * 0.6)) {
           setIsLaunchingUp(true);
-          confetti({
-            particleCount: 55,
-            spread: 75,
-            origin: { x: 0.12, y: 0.88 },
-            colors: ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#FF6392'],
-          });
+          try {
+            confetti({
+              particleCount: 55,
+              spread: 75,
+              origin: { x: 0.12, y: 0.88 },
+              colors: ['#FF595E', '#FFCA3A', '#8AC926', '#1982C4', '#FF6392'],
+            });
+          } catch {
+            // Ignore confetti errors
+          }
         }
 
         if (current < totalFrames) {
           setFrameIndex(current);
         } else {
-          clearInterval(animInterval);
+          clearInterval(wakeupIntervalRef.current);
+          wakeupIntervalRef.current = null;
           setIsLaunchingUp(false);
+          setTapCount(0);
           setPhase('awake');
           evaluateMascotContext(position.x, position.y);
         }
@@ -539,7 +572,7 @@ export default function SmartFloatingMascot({
                   </>
                 ) : pitch.ctaType === 'open-customizer' ? (
                   <>
-                    <Wand2 className="w-3 h-3" />
+                    <Wand2 className="w-3.5 h-3.5" />
                     {pitch.ctaLabel}
                   </>
                 ) : (

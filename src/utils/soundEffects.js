@@ -1,6 +1,10 @@
 function buildAudioCandidates(customUrl, defaultList = []) {
   if (!customUrl) return defaultList;
-  if (customUrl.startsWith('data:') || customUrl.startsWith('http') || customUrl.startsWith('blob:')) {
+  if (
+    customUrl.startsWith('data:') ||
+    customUrl.startsWith('http') ||
+    customUrl.startsWith('blob:')
+  ) {
     return [customUrl, ...defaultList];
   }
   const fileName = customUrl.split('/').pop();
@@ -29,12 +33,16 @@ class SoundController {
   }
 
   init() {
-    if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+    try {
+      if (!this.ctx && typeof window !== 'undefined') {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) this.ctx = new AudioCtx();
+      }
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+    } catch (e) {
+      console.warn('Web Audio init warning:', e);
     }
   }
 
@@ -72,7 +80,6 @@ class SoundController {
     tryPlay(0);
   }
 
-  // Starts looping Intro Video background music while on the "Tap to Start" screen
   startIntroMusic(customUrl = '', volume = 0.45) {
     if (typeof window === 'undefined') return;
     this.stopIntroMusic();
@@ -109,7 +116,6 @@ class SoundController {
     }
   }
 
-  // Starts looping gameplay background music for Puff's Cloud Dash
   startGameMusic(customUrl = '/sounds/bm.mp3', volume = 0.45) {
     if (typeof window === 'undefined') return;
     this.stopIntroMusic();
@@ -155,7 +161,6 @@ class SoundController {
     this.stopPreviewAudio();
   }
 
-  // Plays or stops a sound preview inside Admin HQ
   previewAudioUrl(customUrl, volume = 0.75) {
     if (typeof window === 'undefined' || !customUrl) return;
     this.stopPreviewAudio();
@@ -186,7 +191,6 @@ class SoundController {
     }
   }
 
-  // Plays bonk.mp3 (or Admin custom sound) when Puff hits a hazard
   playBonkSound(customUrl = '/sounds/bonk.mp3', volume = 0.85) {
     const candidates = buildAudioCandidates(customUrl, [
       '/sounds/bonk.mp3',
@@ -197,7 +201,6 @@ class SoundController {
     this.playSoundFile(candidates, volume, () => this.playBoing());
   }
 
-  // Plays powerup.mp3 (or Admin custom sound) when Puff catches a healing pillow
   playHealthPowerupSound(customUrl = '/sounds/powerup.mp3', volume = 0.85) {
     const candidates = buildAudioCandidates(customUrl, [
       '/sounds/powerup.mp3',
@@ -207,7 +210,6 @@ class SoundController {
     this.playSoundFile(candidates, volume, () => this.playSparkleChime());
   }
 
-  // Plays moonbeam.mp3 (or Admin custom sound) when Puff catches a Moonbeam Shield
   playMoonbeamSound(customUrl = '/sounds/moonbeam.mp3', volume = 0.85) {
     const candidates = buildAudioCandidates(customUrl, [
       '/sounds/moonbeam.mp3',
@@ -218,7 +220,6 @@ class SoundController {
     this.playSoundFile(candidates, volume, () => this.playSparkleChime());
   }
 
-  // Plays pop.mp3 when the mascot disappears into his nap
   playDisappearPopMp3() {
     this.playSoundFile(
       ['/sounds/pop.mp3', '/sounds/Pop.mp3', '/pop.mp3'],
@@ -229,62 +230,70 @@ class SoundController {
 
   playMascotSqueak() {
     if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
 
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(540, now);
-    osc.frequency.exponentialRampToValueAtTime(1220, now + 0.08);
-    osc.frequency.exponentialRampToValueAtTime(720, now + 0.19);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(1220, now + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(720, now + 0.19);
 
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.21);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.21);
 
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.21);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.21);
+    } catch (e) {
+      console.warn('Squeak audio warning:', e);
+    }
   }
 
   playGremlinGrumble(intensity = 1) {
     if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
 
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const lfo = this.ctx.createOscillator();
-    const lfoGain = this.ctx.createGain();
-    const gain = this.ctx.createGain();
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const lfo = this.ctx.createOscillator();
+      const lfoGain = this.ctx.createGain();
+      const gain = this.ctx.createGain();
 
-    osc.type = 'sawtooth';
-    const baseFreq = intensity === 1 ? 115 : 155;
-    osc.frequency.setValueAtTime(baseFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.45, now + 0.16);
-    osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, now + 0.34);
+      osc.type = 'sawtooth';
+      const baseFreq = intensity === 1 ? 115 : 155;
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.45, now + 0.16);
+      osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, now + 0.34);
 
-    lfo.frequency.setValueAtTime(28, now);
-    lfoGain.setValueAtTime(35, now);
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.frequency);
+      lfo.frequency.setValueAtTime(28, now);
+      lfoGain.gain.setValueAtTime(35, now);
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
 
-    gain.gain.setValueAtTime(0.14, now);
-    gain.gain.exponentialRampToValueAtTime(0.008, now + 0.36);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.36);
 
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
 
-    osc.start(now);
-    lfo.start(now);
-    osc.stop(now + 0.36);
-    lfo.stop(now + 0.36);
+      osc.start(now);
+      lfo.start(now);
+      osc.stop(now + 0.36);
+      lfo.stop(now + 0.36);
 
-    if (intensity >= 2) {
-      setTimeout(() => this.playMascotSqueak(), 180);
+      if (intensity >= 2) {
+        setTimeout(() => this.playMascotSqueak(), 180);
+      }
+    } catch (e) {
+      console.warn('Grumble audio warning:', e);
     }
   }
 
@@ -297,93 +306,109 @@ class SoundController {
 
   playMascotBlink() {
     if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
 
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(340, now);
-    osc.frequency.exponentialRampToValueAtTime(480, now + 0.045);
-
-    gain.gain.setValueAtTime(0.05, now);
-    gain.gain.exponentialRampToValueAtTime(0.005, now + 0.05);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.05);
-  }
-
-  playPop() {
-    if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(280, now);
-    osc.frequency.exponentialRampToValueAtTime(620, now + 0.07);
-
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.08);
-  }
-
-  playBoing() {
-    if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const now = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(190, now);
-    osc.frequency.exponentialRampToValueAtTime(540, now + 0.12);
-    osc.frequency.exponentialRampToValueAtTime(310, now + 0.25);
-
-    gain.gain.setValueAtTime(0.16, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.26);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.26);
-  }
-
-  playSparkleChime() {
-    if (this.muted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const notes = [523.25, 659.25, 783.99, 1046.5];
-    notes.forEach((freq, idx) => {
-      const now = this.ctx.currentTime + idx * 0.055;
+      const now = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
 
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.exponentialRampToValueAtTime(480, now + 0.045);
 
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.008, now + 0.18);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.05);
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.19);
-    });
+      osc.stop(now + 0.05);
+    } catch (e) {
+      console.warn('Blink audio warning:', e);
+    }
+  }
+
+  playPop() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(620, now + 0.07);
+
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch (e) {
+      console.warn('Pop audio warning:', e);
+    }
+  }
+
+  playBoing() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(190, now);
+      osc.frequency.exponentialRampToValueAtTime(540, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(310, now + 0.25);
+
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.26);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.26);
+    } catch (e) {
+      console.warn('Boing audio warning:', e);
+    }
+  }
+
+  playSparkleChime() {
+    if (this.muted) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, idx) => {
+        const now = this.ctx.currentTime + idx * 0.055;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.008, now + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.19);
+      });
+    } catch (e) {
+      console.warn('Chime audio warning:', e);
+    }
   }
 }
 

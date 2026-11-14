@@ -1,3 +1,5 @@
+import { getPublicPrintFiles } from '../utils/publicManifest';
+
 export const PILLOW_SIZES = [
   { id: '14x14', widthIn: 14, heightIn: 14, label: '14" × 14" (Compact Accent)', price: 24.99, sku: 'OCP-PIL-1414' },
   { id: '16x16', widthIn: 16, heightIn: 16, label: '16" × 16" (Standard As Shown)', price: 28.99, sku: 'OCP-PIL-1616' },
@@ -39,41 +41,55 @@ export const FABRIC_BG_COLORS = [
   { name: 'Charcoal', hex: '#22222B' },
 ];
 
-export const AVAILABLE_PRINTS = [
-  {
-    id: 'french-fries',
-    name: 'Golden French Fries',
-    pngPath: '/prints/french-fries.png',
-    fallbackPath: '/icons/french-fries.svg',
-  },
-  {
-    id: 'diet-cola',
-    name: 'Fizzy Diet Cola',
-    pngPath: '/prints/diet-cola.png',
-    fallbackPath: '/icons/printed-pillow.svg',
-  },
-  {
-    id: 'choco-cookie',
-    name: 'Chocolate Chip Cookie',
-    pngPath: '/prints/choco-cookie.png',
-    fallbackPath: '/icons/bear-rugs.svg',
-  },
-  {
-    id: 'gummy-bears',
-    name: 'Rainbow Gummy Bears',
-    pngPath: '/prints/gummy-bears.png',
-    fallbackPath: '/icons/squishies.svg',
-  },
-  {
-    id: 'sushi-roll',
-    name: 'Kawaii Sushi Roll',
-    pngPath: '/prints/sushi-roll.png',
-    fallbackPath: '/icons/sushi-pillow.svg',
-  },
-  {
-    id: 'fried-egg',
-    name: 'Sunny Fried Egg',
-    pngPath: '/prints/fried-egg.png',
-    fallbackPath: '/icons/fried-egg-unique-blanket.svg',
-  },
-];
+const discoveredPublicPrints = getPublicPrintFiles().map((url) => {
+  const fileName = url.split('/').pop().replace(/\.(png|webp|jpg|svg)$/i, '');
+  return {
+    id: fileName.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    name: fileName,
+    pngPath: url,
+    fallbackPath: url,
+  };
+});
+
+export const AVAILABLE_PRINTS =
+  discoveredPublicPrints.length > 0
+    ? discoveredPublicPrints
+    : [
+        {
+          id: 'french-fries',
+          name: 'Golden French Fries',
+          pngPath: '/icons/french-fries.svg',
+          fallbackPath: '/icons/french-fries.svg',
+        },
+        {
+          id: 'diet-cola',
+          name: 'Fizzy Diet Cola',
+          pngPath: '/icons/printed-pillow.svg',
+          fallbackPath: '/icons/printed-pillow.svg',
+        },
+        {
+          id: 'choco-cookie',
+          name: 'Chocolate Chip Cookie',
+          pngPath: '/icons/bear-rugs.svg',
+          fallbackPath: '/icons/bear-rugs.svg',
+        },
+        {
+          id: 'gummy-bears',
+          name: 'Rainbow Gummy Bears',
+          pngPath: '/icons/squishies.svg',
+          fallbackPath: '/icons/squishies.svg',
+        },
+        {
+          id: 'sushi-roll',
+          name: 'Kawaii Sushi Roll',
+          pngPath: '/icons/sushi-pillow.svg',
+          fallbackPath: '/icons/sushi-pillow.svg',
+        },
+        {
+          id: 'fried-egg',
+          name: 'Sunny Fried Egg',
+          pngPath: '/icons/fried-egg-unique-blanket.svg',
+          fallbackPath: '/icons/fried-egg-unique-blanket.svg',
+        },
+      ];
+      
